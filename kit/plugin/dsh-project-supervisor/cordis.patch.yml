@@ -1,0 +1,6 @@
+# Bundle patch for dsh-project-supervisor.
+# Registers one client plugin row; the browser half is discovered through
+# package.json `dsh.client` + the `./client` export.
+- insert:
+    - id: project-supervisor
+      name: dsh-project-supervisor
