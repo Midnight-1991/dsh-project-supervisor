@@ -36,6 +36,9 @@ const KIT_DIR = (() => {
   // kit root is two levels up.
   const sourceLayout = path.resolve(PLUGIN_DIR, '..', '..', 'setup');
   if (fs.existsSync(path.join(sourceLayout, 'install-supervisor.mjs'))) return sourceLayout;
+  // Public-repo layout: <repo>/scripts/compat-check.mjs, kit at <repo>/kit.
+  const repoKit = path.resolve(PLUGIN_DIR, 'kit');
+  if (fs.existsSync(path.join(repoKit, 'install-supervisor.mjs'))) return repoKit;
   return path.resolve(PLUGIN_DIR, '..', '..');
 })();
 const VERBOSE = process.argv.includes('--verbose');

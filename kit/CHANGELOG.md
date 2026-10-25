@@ -1,6 +1,16 @@
 # 更新记录
 
-格式：`## [版本] 日期` + 变更分类。版本号与 `setup/VERSION` 保持一致。
+格式：`## [版本] 日期` + 变更分类。版本号与同目录 `VERSION` 一致（源工作区为 `setup/VERSION`）。
+
+## [1.8.4] 2026-10-25
+
+### 公开仓库审查修复（对外文档 / 自测 / 分发一致性）
+
+- 背景：工作区另一个对话框对公开仓库与发布链做独立审查，报 2 项 blocking（zip 路线安装命令与目录名错、README/手册版本状态滞后）+ 12 项 advisory；本版逐条修复。
+- 对外文档：公开 README 拆「仓库路线 / zip 路线」两套命令、修正 kit 结构块与许可证路径、补 `pnpm` 前置、版本状态更新为 1.8.4 并补 1.8.2/1.8.3；`安装说明.md` 把 `cd project-supervisor-kit` 改为通配、补 `--force` 清理语义、卸载指向完整清单、证据路径修正；《朋友测试指南》包名改 `<日期>` 占位、`--global-skill --force` 语义纠正、三开关 + 工作模式、Windows 表述统一、包大小更新；《主管手册》Release/插件版本/sha 引用/断链修正并补 1.8.4 历史行。
+- 自测与分发：`compat-check` 增加 `<repo>/kit` 布局探测（干净克隆 32/32）；repo `kit/` 与 zip 的插件副本统一包含 README/screenshots/scripts，`kit/package.json` 由构建脚本补齐元数据；`install-supervisor.sh` 的 `--force` 清理排除 `*.bak.*`（不再产生双后缀备份）；`THIRD_PARTY_NOTICES` 修正 Python 与维护脚本措辞；分发包继续排除内部评审（新增 12 与 review-public-repo/）。
+- 收尾（note 项）：zip 打包前统一权限（文件 644 / 脚本 755，避免解压后 600 无法共享读取）；插件 `files` 补 `scripts`（`npm test` 在 npm 安装场景可用）；加可选 `peerDependencies`（`@deepseek-ai/dsh`，optional）；公开仓库新增 `SECURITY.md` / `CONTRIBUTING.md`；朋友指南措辞修正（sidecar 只对最新版、Windows 无需 Git Bash）。
+- 回归：selftest 18/18、sync 一致、干净克隆 compat-check 32/32、build 重建（sha 见 Release sidecar）。
 
 ## [1.8.3] 2026-10-25
 
@@ -179,7 +189,7 @@
 
 ### 工程化维护（本次新增）
 
-- `setup/VERSION` / `setup/CHANGELOG.md`：版本号与变更记录。
+- `VERSION` / `CHANGELOG.md`：版本号与变更记录（源工作区为 `setup/` 下）。
 - `setup/sync-kit.sh`：唯一同步入口，把源规则/技能/手册/调研转换为可移植 kit 副本；默认同步、`--check` 只检查（漂移打印 diff 并 exit 1）、`--global` 顺带更新全局技能（旧文件备份）；幂等。
 - `setup/selftest.sh`：一键回归（语法检查、临时副本同步一致性、4 组安装、重复安装幂等、权限补丁自测、打包校验），任一失败 exit 1。
 - `setup/verify-facts.sh`：联网复检调研引用链接、GitHub 星数、DSH 常量与补丁状态；`--offline` 跳过联网；仅 FAIL 时 exit 1。

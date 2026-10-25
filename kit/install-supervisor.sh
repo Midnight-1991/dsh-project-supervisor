@@ -243,6 +243,8 @@ EOF
     destlist="$(cd "$dest" && find . -type f -print | LC_ALL=C sort | sed 's|^\./||')"
     while IFS= read -r rel; do
       if [ -z "$rel" ]; then continue; fi
+      # 备份产物不当作“多余文件”再备份（否则产生 *.bak.*.bak.* 双后缀）
+      case "$rel" in *.bak.*) continue;; esac
       if [ -e "$src/$rel" ]; then continue; fi
       backup_file "$dest/$rel"
       if [ "$DRY_RUN" -eq 0 ]; then rm -f "$dest/$rel" || die "删除失败: $dest/$rel"; fi

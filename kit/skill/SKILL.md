@@ -131,7 +131,7 @@ metadata:
 
 **反模式**：没话找话凑问题；问能自己查到的（技术版本、目录结构）；一次抛 15 个问题；反复问同一件事；用户说「直接做」还继续问；追问内容只留在聊天、没落盘。
 
-**参考来源（下列 4 个均 MIT、可照抄机制；另 2 个无许可证仓库只取思路、不抄文本，见 [research/07-requirement-interview.md](../../research/07-requirement-interview.md)）**：
+**参考来源（4 个 MIT 可照抄机制；2 个无许可证仅取思路；调研笔记 `research/07-requirement-interview.md`，--with-research 时在工作区）**：
 - **spec-kit `/clarify`**：单条消息一问、全会话最多 5 问、每题 2–5 个选项且标推荐项、回 `yes` 即接受、每答即写回文档、未解项列 Deferred；10 类覆盖度扫描（Clear/Partial/Missing）+ `Impact × Uncertainty` 排序。本工作区改为「每批 3–5 问 / 最多 3 批」（0→1 新项目比已有 spec 需要更多信息）。
 - **superpowers `brainstorming`**：先读代码与上下文再问（"Never ask what the project or their context already answers"）；一条消息一问；每段答完回放 200–300 字；设计稿批准前 HARD-GATE 不许动手；追问自带退出通道。
 - **BMAD PRD Discovery**：快路径=把剩余缺口合并成 1–2 问 + `[ASSUMPTION]` 标注直接出稿；教练路径=逐节问；风险分档 hobby/internal/launch。用户赶时间或说「你定」时用快路径，并明确列出假设。

@@ -1,0 +1,32 @@
+name: verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke-and-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: plugin offline checks
+        run: |
+          node --check client.js
+          node --check index.js
+          node scripts/smoke.mjs
+          node scripts/host-smoke.mjs
+          node scripts/compat-check.mjs
+      - name: kit installer dry-run (bash + node)
+        run: |
+          mkdir -p /tmp/verify-ws
+          bash kit/install-supervisor.sh /tmp/verify-ws --dry-run --with-research
+          node kit/install-supervisor.mjs /tmp/verify-ws --dry-run --with-research
+      - name: kit install smoke
+        run: |
+          node kit/install-supervisor.mjs /tmp/verify-ws --with-research
+          test -f /tmp/verify-ws/AGENTS.md
+          test -d /tmp/verify-ws/.dsh/skills/project-supervisor/templates
+          node kit/install-supervisor.mjs /tmp/verify-ws --with-research  # idempotent

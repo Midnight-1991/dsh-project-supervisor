@@ -271,6 +271,8 @@ function install(options) {
     if (options.force && exists(destDir)) {
       for (const rel of listFiles(destDir)) {
         if (sources.includes(rel)) continue;
+        // 备份产物不当作“多余文件”再备份（否则产生 *.bak.*.bak.* 双后缀）
+        if (rel.includes('.bak.')) continue;
         const dest = path.join(destDir, rel);
         backupOf(dest);
         removeFile(dest);

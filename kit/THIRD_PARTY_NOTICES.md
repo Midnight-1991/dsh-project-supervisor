@@ -10,7 +10,7 @@
 Copyright (c) 2026 dsh-project-supervisor contributors
 ```
 
-MIT 全文见分享包根目录的 `LICENSE`（源工作区为 `setup/LICENSE`）。
+MIT 全文见分享包根目录的 `LICENSE`（维护者仓库中位于 `setup/LICENSE`）。
 
 ## 二、第三方组件清单
 
@@ -23,7 +23,7 @@ MIT 全文见分享包根目录的 `LICENSE`（源工作区为 `setup/LICENSE`�
 
 - DeepSeek Harness（`dsh`）及其 Web profile；
 - Node.js（可选 UI 插件与 smoke 脚本使用）；
-- Python 3（安装、同步、打包脚本与权限补丁使用）；
+- Python 3（**仅**维护者仓库的同步/打包脚本与可选权限补丁使用；安装器 `install-supervisor.*` / `install-plugin.*` 不需要）；
 - bash、`zip`/`unzip`、`shasum` 或 `sha256sum`（安装、校验、打包使用）。
 
 ## 三、improving-prompts
@@ -55,7 +55,7 @@ d8e665511dc0edd5c7031ac5a446946538d0f598c10082446e31cdaa4f029fb9  references/mod
 2. **正文新增两节**：`## Act on the result`（把增强提示词当作任务，在同一轮立即执行；说明不行动的情形）与 `## Sticky session mode`（在同一对话内说「润色并执行 / 开启润色模式」后持续生效，直到显式退出）。
 3. **末尾新增中文 `## Local notes（本机安装说明）`**：安装位置、与主管开关 `.dsh/supervisor.config.json` 的 `promptPolish` 联动、报告语言、占位符规则、单次跳过与粘性模式的约定等。
 
-改编版仍按 MIT 许可分发，版权归原权利人 Igor Wnek；本套件不对上游内容主张额外限制。安装包里的 `skill-improving-prompts/SKILL.md` 由 `setup/sync-kit.sh` 从工作区副本生成，请勿手改该模板副本。
+改编版仍按 MIT 许可分发，版权归原权利人 Igor Wnek；本套件不对上游内容主张额外限制。安装包里的 `skill-improving-prompts/SKILL.md` 由维护脚本 `sync-kit.sh`（维护者仓库 `setup/` 下）从工作区副本生成，请勿手改该模板副本。
 
 ### 3.3 MIT 许可全文（英文原文）
 

@@ -2,7 +2,7 @@
   "name": "dsh-project-supervisor",
   "version": "0.5.1",
   "type": "module",
-  "description": "Project supervisor panel for DeepSeek Harness: a read-only dashboard that checks a workspace against the supervisor kit's engineering baseline, shows the supervisor workflow and beginner safeguards, and copies ready-to-use kickoff commands.",
+  "description": "Beta / under test. Project supervisor panel for DeepSeek Harness: a read-only dashboard that checks a workspace against the supervisor kit's engineering baseline, shows the supervisor workflow and beginner safeguards, and copies ready-to-use kickoff commands.",
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -17,10 +17,11 @@
     "client.js",
     "cordis.patch.yml",
     "install-plugin.sh",
+    "install-plugin.mjs",
     "README.md",
     "LICENSE",
     "screenshots",
-    "install-plugin.mjs"
+    "scripts"
   ],
   "scripts": {
     "test": "node scripts/smoke.mjs"
@@ -41,5 +42,25 @@
         "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.2.0-rc.2"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh": {
+      "optional": true
+    }
+  },
+  "homepage": "https://github.com/Midnight-1991/dsh-project-supervisor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Midnight-1991/dsh-project-supervisor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Midnight-1991/dsh-project-supervisor/issues"
+  },
+  "author": "dsh-project-supervisor contributors",
+  "engines": {
+    "node": ">=18"
   }
 }
