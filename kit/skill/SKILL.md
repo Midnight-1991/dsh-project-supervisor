@@ -39,18 +39,18 @@ metadata:
 > 来源：内部调研笔记 `research/09-superpowers-learning.md`（随套件 research/；上游 obra/superpowers，MIT）。模板在 `templates/`。
 
 1. **计划即文件 + 任务简报**：开工先写 `plan.md`（Goal / Architecture / Tech Stack / Global Constraints / Review Focus / 任务表，模板 `templates/plan.md`）；每个实现任务先写 `task-brief.md`（目标 / 输入 / 约束与写范围 / 验收 / 交付，模板 `templates/task-brief.md`）。没有 plan/brief 不派实现；计划变更先落文件再改任务。
-2. **两段式交付（实现者 → 独立评审）**：实现者交 report（做了什么 / 验证命令与输出 / 存疑项）+ diff；独立评审只读，输入 **brief + report + diff** 三件套，必须同时给 **spec 符合度**与**质量结论**（overall / blocking / advisory，模板 `templates/review-gate.md`）；禁止 pre-judge、禁止替实现者改代码；blocking 未清零不算完成。
+2. **两段式交付（实现者 → 独立评审）**：实现者交 report（做了什么 / 验证命令与输出 / 存疑项）+ diff；独立评审只读，输入 **brief + report + diff** 三件套，必须同时给 **spec 符合度**与**质量结论**（模板 `templates/review-gate.md`）；禁止 pre-judge、禁止替实现者改代码；blocking 未清零不算完成。
 3. **完成声明 Gate**：声明完成前照 `review-gate.md` 的 **Gate 五步**走完（认定完成项→找验证命令→完整跑→读输出与退出码→证据写进 report）；失败表与红旗词见模板；**没证据 = 未完成**。
 4. **有界 fix loop**：blocking → 实现者修 → **scoped re-review**（只看 blocking + 新 diff）；同一任务最多 2 轮，不收敛即升级：主管裁决/换人/缩小范围交还用户；advisory 可记账不修，**blocking 禁止静默丢弃**；裁决进账本。
-5. **任务账本 Ledger**：每个项目一份 `LEDGER.md`（立项时复制 `templates/ledger.md` 生成）（模板 `templates/ledger.md`），记 **完成 / 决定 / 裁决 / 阻塞 / 重派**（时间 + 事件 + 决定 + 影响）；与 DSH 任务板、`DECISIONS.md` 对账；上下文压缩或换会话后先读 `LEDGER.md` + `plan.md` 恢复现场再继续。
+5. **任务账本 Ledger**：每个项目一份 `LEDGER.md`（模板 `templates/ledger.md`，立项时复制生成），记 **完成 / 决定 / 裁决 / 阻塞 / 重派**（时间 + 事件 + 决定 + 影响）；与 DSH 任务板、`DECISIONS.md` 对账；上下文压缩或换会话后先读 `LEDGER.md` + `plan.md` 恢复现场再继续。
 6. **技能自动触发 + 红旗借口表**：开工先列可用技能（DSH 注入的 available skills + `.dsh/skills/*/SKILL.md`），任务只要与任一技能相关（哪怕 1%）就先 `skill` 加载再动手。借口一律不成立：太简单 / 我记得 / 用户赶时间 / 先做再补流程 / 没搜到。
 7. **调试 Iron Law**：**没找到根因，不许提修复方案**。四步：读全错误与日志 → 最小复现（命令/输入+环境版本）→ 查最近改动（git diff/日志）→ 多组件逐段埋点定位到文件+行，写出根因一句话再修；复现不了先补日志/缩范围；3 次修不好→质疑架构并升级；修后跑回归。
-8. **并行派发纪律**：**一域一代理**；**同一文件/同一域的实现者不并行**；prompt 四要素 = 目标/输入/验收/边界（写范围+禁止项），预算、格式、权限按需附加；同一响应发起全部就绪任务；实现落地后主管跑**全量回归**并统一评审。
+8. **并行派发纪律**：**一域一代理**；**同一文件/同一域的实现者不并行**；prompt 四要素 = 目标/输入/验收/边界（写范围+禁止项），预算、格式、权限按需附加；同一响应发起全部就绪任务；实现落地后主管跑**全量回归**并统一评审。等待超时（`wait_agent` 返回 `timedOut:true`）只是观察窗口到期：超时后重新 list 继续、不重发不重复派发；预计 >8 分钟的任务拆 2–3 个可验收阶段。
 9. **小批量同型改动合并派发**：改名/调样式/文档链接/配置字段等机械改动跨文件时，合成一个任务、一个代理、一次验收，只审一个 diff；不要每文件开对话框。
 10. **技能/规则写作 TDD**：改 SKILL/AGENTS/模板前先写 2–3 个压力场景（期望行为+常见违规诱导），再让 **fresh 对话框**只拿规则执行；观察漏项/误解/找借口→改规则→再测；红→改→绿才算完成，证据（场景→实际→判定）写进 report 与账本。
 11. **隔离基线**：每任务前确认 `git status` 干净（不干净先问清哪些是用户改动；做不到就记录基线进账本）；**单写者**（同一文件/目录同一时间只有一个代理写）；每任务完成由主管做一次 commit（消息含 task id）；DSH 无 worktree，用「单写者 + clean baseline + 每任务 commit」等价替代。
-12. **模型分级**：按复杂度在 brief 标「建议模型档位」——高（架构/跨模块/复杂调试/规则设计）、中（常规实现/文档/测试）、低（机械改动/格式）；**DSH 现状：`spawn_teammate` 没有 model/provider 参数**（模型由 DSH 配置决定），暂不能按任务选模型，用「拆分+验收强度+档位备注」补偿；turn 数比 token 单价更贵，多轮返工优先换人/升级。
-13. **收尾菜单**：每个项目结束固定四步：① 跑全量测试/构建（不只改动相关）② 环境检查（启动命令、依赖、`.env`/密钥扫描、README 能否照做）③ 给用户 **3 个选项**（交付整理 / 继续迭代 / 归档留可复现入口，带推荐）④ 执行 + 清理临时文件/调试日志 + 决策补进 `LEDGER.md`/`DECISIONS.md` + 零基础交接清单。
+12. **模型分级**：按复杂度在 brief 标「建议模型档位」——高（架构/跨模块/复杂调试/规则设计）、中（常规实现/文档/测试）、低（机械改动/格式）；**DSH 现状：`spawn_teammate` 没有 model/provider 参数**（模型由 DSH 配置决定），暂不能按任务选模型，用「拆分+验收强度+档位备注」补偿。
+13. **收尾菜单**：每个项目结束固定四步：① 跑全量测试/构建（不只改动相关）② 环境检查（启动命令、依赖、`.env`/密钥扫描、README 能否照做）③ 给用户 **3 个选项**（交付 / 继续 / 归档，带推荐）④ 执行 + 清理临时文件/调试日志 + 决策补进 `LEDGER.md`/`DECISIONS.md` + 零基础交接清单。
 14. **多平台适配清单**：① DSH Web/CLI：Web 有面板开关，CLI 无面板但规则同样生效，配置同为 `.dsh/supervisor.config.json`。② macOS（bash 3.2）：不用 `mapfile`/`${var,,}`，`sed -i ''`，路径加引号。③ Windows：`python`/`py`、`$env:DSH_HOME`、优先用 `setup/install-supervisor.mjs`。④ 模板位置：`templates/` 与 SKILL 同目录，跨工作区/全局安装须整目录复制，缺失时用本 SKILL 内联结构 fallback。
 
 > 轻量项目可只启用 plan+brief+Gate；零基础/追问/润色/派发模式章节不变。
