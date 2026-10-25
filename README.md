@@ -109,12 +109,17 @@ node kit/install-supervisor.mjs /tmp/test-workspace --with-research  # Windows/�
 
 ## 状态 / Status
 
-**Beta（测试中）**。已完成：面板 UI、四类配置、跨平台崩溃安全、套件安装/分享、独立评审修复；未完成：Windows 真机 e2e、更多真实项目演练、DSH 版本升级后的兼容回归。
+**Beta（测试中）**。当前：插件 0.5.0 / 规则套件 1.8.0。已完成：面板 UI、四类配置、跨平台崩溃安全、工作流硬化 14 条 + 技能模板分发（v1.8.0）、套件安装/分享、独立评审修复；未完成：Windows 真机 e2e、更多真实项目演练、DSH 版本升级后的兼容回归。
 
 ## 许可证与第三方 / License
 
 本仓库采用 **MIT License**，全文见 [LICENSE](LICENSE)。
 
-第三方组件：`improving-prompts` 技能来自 [theultimate-dev/skills](https://github.com/theultimate-dev/skills/tree/main/skills/prompt-engineering/improving-prompts)，MIT © 2026 Igor Wnek；完整清单与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 及 `kit/.dsh/skills/improving-prompts/LICENSE`。
+第三方组件与致谢：
+
+- `improving-prompts` 技能来自 [theultimate-dev/skills](https://github.com/theultimate-dev/skills/tree/main/skills/prompt-engineering/improving-prompts)，MIT © 2026 Igor Wnek；
+- 工作流机制参考 [obra/superpowers](https://github.com/obra/superpowers)（MIT © 2025 Jesse Vincent）：本项目的「工作流硬化」借鉴其流程思想（计划落文件、实现/评审分离、完成声明过验证门、有界返工、任务账本等），规则与模板为独立撰写，未复制其代码或长段原文。
+
+完整清单、各自 MIT 全文与使用范围见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 及 `kit/.dsh/skills/improving-prompts/LICENSE`。
 
 > 这不是 DeepSeek 官方项目；DSH 与 DeepSeek 是其各自权利人的商标。

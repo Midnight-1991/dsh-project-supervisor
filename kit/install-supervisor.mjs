@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IS_WINDOWS = process.platform === 'win32';
+const PROJECT_SKILL_TEMPLATES = ['plan.md', 'task-brief.md', 'ledger.md', 'review-gate.md'];
 
 function fail(message) {
   console.error('\n错误：' + message);
@@ -79,6 +80,23 @@ function setSkillWorkspace(skillPath, workspace) {
   fs.writeFileSync(skillPath, next, 'utf8');
 }
 
+function assertProjectSkillTemplates(kit) {
+  const skillDir = path.join(kit, 'skill');
+  if (!fs.existsSync(path.join(skillDir, 'SKILL.md'))) {
+    fail('安装包缺少 skill/SKILL.md（先在源工作区运行 setup/sync-kit.sh 生成 kit 副本）');
+  }
+  const templateDir = path.join(skillDir, 'templates');
+  if (!fs.existsSync(templateDir)) {
+    fail('安装包缺少 skill/templates/（先在源工作区运行 setup/sync-kit.sh 生成 kit 副本）');
+  }
+  for (const name of PROJECT_SKILL_TEMPLATES) {
+    const file = path.join(templateDir, name);
+    if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
+      fail('安装包缺少或为空：skill/templates/' + name + '（先在源工作区运行 setup/sync-kit.sh 生成 kit 副本）');
+    }
+  }
+}
+
 function install(options) {
   const kit = HERE;
   const target = options.target;
@@ -103,12 +121,13 @@ function install(options) {
     step('写入 AGENTS.md（主管常驻规则）');
   }
 
-  // 2) project-supervisor skill
+  // 2) project-supervisor skill (whole directory: SKILL.md + templates/)
+  assertProjectSkillTemplates(kit);
   const skillDir = path.join(target, '.dsh', 'skills', 'project-supervisor');
   fs.mkdirSync(skillDir, { recursive: true });
-  fs.copyFileSync(path.join(kit, 'skill', 'SKILL.md'), path.join(skillDir, 'SKILL.md'));
+  copyDir(path.join(kit, 'skill'), skillDir);
   setSkillWorkspace(path.join(skillDir, 'SKILL.md'), target);
-  step('写入 .dsh/skills/project-supervisor/SKILL.md（workspace 元数据已指向目标目录）');
+  step('写入 .dsh/skills/project-supervisor/（SKILL.md + templates/ 4 个模板；workspace 元数据已指向目标目录）');
 
   // 2.5) improving-prompts skill (full directory: SKILL.md + LICENSE + references + templates)
   const polishDir = path.join(target, '.dsh', 'skills', 'improving-prompts');
@@ -148,12 +167,13 @@ function install(options) {
 
   // 5) optional global skills
   if (options.globalSkill) {
+    assertProjectSkillTemplates(kit);
     const projectSkill = path.join(options.dshHome, 'skills', 'project-supervisor');
     fs.mkdirSync(projectSkill, { recursive: true });
-    fs.copyFileSync(path.join(kit, 'skill', 'SKILL.md'), path.join(projectSkill, 'SKILL.md'));
+    copyDir(path.join(kit, 'skill'), projectSkill);
     setSkillWorkspace(path.join(projectSkill, 'SKILL.md'), '*');
     copyDir(path.join(kit, 'skill-improving-prompts'), path.join(options.dshHome, 'skills', 'improving-prompts'));
-    step('已安装全局技能: ' + path.join(projectSkill, 'SKILL.md') + '（任意工作区可用）');
+    step('已安装全局技能: ' + projectSkill + '/（SKILL.md + templates/ 4 个模板，任意工作区可用）');
     step('已安装全局技能: ' + path.join(options.dshHome, 'skills', 'improving-prompts') + '/');
   }
 

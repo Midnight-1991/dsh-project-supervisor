@@ -17,8 +17,9 @@ MIT 全文见分享包根目录的 `LICENSE`（源工作区为 `setup/LICENSE`�
 | 组件 | 快照 / 版本 | 上游 | 许可证 | 版权 | 包内位置 |
 |---|---|---|---|---|---|
 | improving-prompts（提示词润色技能） | 上游 `main`，2026-10-24 获取 | <https://github.com/theultimate-dev/skills/tree/main/skills/prompt-engineering/improving-prompts> | MIT | Copyright (c) 2026 Igor Wnek | 工作区 `.dsh/skills/improving-prompts/`；安装包模板 `skill-improving-prompts/`；安装后落到 `<工作区>/.dsh/skills/improving-prompts/`，`--global-skill` 时另复制到 `~/.dsh/skills/improving-prompts/` |
+| superpowers（工作流机制参考，非代码分发） | 上游 `main`，2026-10-25 阅读（231 文件 / 15 个技能） | <https://github.com/obra/superpowers> | MIT | Copyright (c) 2025 Jesse Vincent | 不随包分发其代码；仅 `research/09-superpowers-learning.md` 的学习笔记与本套件规则/模板的独立改写（见第四节） |
 
-除 improving-prompts 外，本套件不包含其他第三方源代码或素材。以下软件只在运行/安装时由你的机器提供，不随包分发，各自遵循其自身许可证：
+除 improving-prompts 外，本套件不包含其他第三方源代码或素材；superpowers 仅作为工作流机制参考（见第四节），**未复制其代码或长段原文**，规则与模板为本项目独立撰写。以下软件只在运行/安装时由你的机器提供，不随包分发，各自遵循其自身许可证：
 
 - DeepSeek Harness（`dsh`）及其 Web profile；
 - Node.js（可选 UI 插件与 smoke 脚本使用）；
@@ -82,9 +83,48 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## 四、合规检查清单（打包/再分发前）
+## 四、superpowers（工作流机制参考）
+
+### 4.1 来源与使用范围
+
+- 上游仓库：<https://github.com/obra/superpowers>（MIT）
+- 上游许可证：<https://raw.githubusercontent.com/obra/superpowers/main/LICENSE>（2026-10-25 获取，HTTP 200）
+- 阅读范围：`README.md`、`AGENTS.md`、`skills/` 下 15 个 `SKILL.md`（brainstorming、writing-plans、subagent-driven-development、test-driven-development、systematic-debugging、dispatching-parallel-agents、verification-before-completion、using-git-worktrees、requesting-code-review、receiving-code-review、finishing-a-development-branch、writing-skills、executing-plans、using-superpowers、diagnosing-superpowers）、`hooks/session-start` 与部分参考文件；未运行其代码。
+- 产出：`research/09-superpowers-learning.md`（14 条可迁移机制的独立摘要与逐条落点，含上游链接）。
+- 使用方式：**只借鉴流程思想**（计划落文件、实现/评审分离、完成声明过验证门、返工有上限、裁决进账本、技能自动触发等），14 条规则与 `templates/` 四个模板均为本项目独立撰写；**未复制上游源代码、未整段搬运其 `SKILL.md` 文本**。
+- 引用要求：再分发本套件或其改写版时，请保留本节、上游链接与下述 MIT 许可全文；若未来复制上游任何代码或长段文本，必须在该副本中同时保留其版权声明与 MIT 全文。
+
+### 4.2 MIT 许可全文（superpowers，英文原文）
+
+```text
+MIT License
+
+Copyright (c) 2025 Jesse Vincent
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## 五、合规检查清单（打包/再分发前）
 
 - [ ] 分享包内含 `LICENSE`、`THIRD_PARTY_NOTICES.md`、`skill-improving-prompts/LICENSE`。
 - [ ] `skill-improving-prompts/references/` 为 14 个 `.md`，`templates/` 为 2 个 `.md`，与上游快照一致。
 - [ ] 若更新了上游文件，重跑 `bash setup/sync-kit.sh` 并在本文件记录新的获取日期与核验哈希。
 - [ ] 不删除或改写任何版权行与许可全文。
+- [ ] `research/09-superpowers-learning.md` 保留上游链接与「MIT © 2025 Jesse Vincent」声明；若复制了上游代码/长段文本，额外保留其版权行与 MIT 全文。
+- [ ] 公开仓库 README 的「许可证与第三方」节包含 superpowers 致谢与 `THIRD_PARTY_NOTICES.md` 链接。

@@ -2,6 +2,20 @@
 
 格式：`## [版本] 日期` + 变更分类。版本号与 `setup/VERSION` 保持一致。
 
+## [1.8.0] 2026-10-25
+
+### 工作流硬化与技能模板分发（套件）
+
+- **规则硬化（14 条）**：AGENTS.md 与主管 SKILL 写入计划即文件、实现者+独立评审两段式、完成声明过 Gate、有界 fix loop、任务账本 LEDGER、调试 Iron Law、技能写作 TDD、隔离基线、模型分级、收尾菜单、多平台适配等硬化规则与红旗借口表；常驻体量预算 8000B → **10000B**（实测约 9.7KB）。
+- **技能模板随包分发**：主管技能从「单文件」升级为「技能目录」，新增 `skill/templates/` 四个模板——`plan.md`（计划）、`task-brief.md`（任务简报）、`ledger.md`（任务账本）、`review-gate.md`（评审门禁）；安装后位于 `<工作区>/.dsh/skills/project-supervisor/templates/`。
+- **同步**：`sync-kit.sh` 同步整个 `.dsh/skills/project-supervisor/`（SKILL.md 转换 workspace 元数据 + templates 逐字节复制），`--check` 覆盖模板文件与多余文件；`--global` 同样安装整目录并逐文件 `.bak` 备份。
+- **安装**：`install-supervisor.sh` / `install-supervisor.mjs` 复制整个技能目录（含 `templates/`）到目标工作区与全局技能；安装包缺少模板时明确报错并提示先运行 sync-kit.sh。
+- **回归/打包**：`selftest.sh` 13 项断言补充「kit / 目标工作区 / 全局技能都含模板且非空、逐字节一致、模板漂移可被 --check 检出」；`build-dist.sh` 必需文件清单加入 4 个模板并校验数量与非空；`verify-facts.sh` AGENTS 预算改为 10KB，新增「工作流硬化」软检查（缺失只记 WARN，不阻塞）。
+- **回归/打包**：`selftest.sh` 增加第 13 项「真实工作区 sync --check（改源后须先 sync）」，把漂移从前置 INFO 改为必过检查；`verify-facts.sh` 新增「主管 SKILL ≤32000B」硬检查与「模板 ≤80 行」软检查。
+- **轻量化**：截图从 1000px 降到 800px、内部评审报告（05/06/08/10）不进分享包、SKILL 正文压缩到 31950B；分享包从 542KB 降到约 400KB。
+- **许可证合规（superpowers 引用）**：`THIRD_PARTY_NOTICES.md` 新增「superpowers（工作流机制参考）」节——记录上游 MIT、`Copyright (c) 2025 Jesse Vincent`、阅读范围与使用方式（只借鉴流程、独立撰写、未复制代码或长段原文）、MIT 全文与再分发引用要求；公开 README 增加致谢与链接；`research/09` 增加许可证与引用声明。
+- **文档**：安装说明、朋友测试指南补 `templates/` 与新硬化规则说明；本套件版本 1.8.0。
+
 ## [1.7.0] 2026-10-25
 
 ### 主管工作模式（插件 0.5.0）

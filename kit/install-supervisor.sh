@@ -48,9 +48,15 @@ else
   echo "    写入 AGENTS.md（主管常驻规则）"
 fi
 
-# 2) 技能（触发词：「你当项目主管」「开几个对话框并行做」…）
+# 2) 技能（整个技能目录：SKILL.md + templates/ 四个工作流模板；触发词：「你当项目主管」「开几个对话框并行做」…）
+SKILL_SRC="$KIT_DIR/skill"
+[ -f "$SKILL_SRC/SKILL.md" ] || { echo "安装包缺少 skill/SKILL.md（先运行 setup/sync-kit.sh 生成 kit 副本）" >&2; exit 1; }
+[ -d "$SKILL_SRC/templates" ] || { echo "安装包缺少 skill/templates/（先运行 setup/sync-kit.sh 生成 kit 副本）" >&2; exit 1; }
+for tpl in plan.md task-brief.md ledger.md review-gate.md; do
+  [ -s "$SKILL_SRC/templates/$tpl" ] || { echo "安装包缺少或为空: skill/templates/$tpl（先运行 setup/sync-kit.sh 生成 kit 副本）" >&2; exit 1; }
+done
 mkdir -p "$TARGET/.dsh/skills/project-supervisor"
-cp "$KIT_DIR/skill/SKILL.md" "$TARGET/.dsh/skills/project-supervisor/SKILL.md"
+cp -R "$SKILL_SRC/." "$TARGET/.dsh/skills/project-supervisor/"
 python3 - "$TARGET" "$TARGET/.dsh/skills/project-supervisor/SKILL.md" <<'PY'
 import re, sys
 target, path = sys.argv[1], sys.argv[2]
@@ -58,7 +64,7 @@ t = open(path, encoding='utf-8').read()
 t = re.sub(r'^(\s*workspace:\s*)".*"', lambda m: m.group(1) + '"' + target + '"', t, count=1, flags=re.M)
 open(path, 'w', encoding='utf-8').write(t)
 PY
-echo "    写入 .dsh/skills/project-supervisor/SKILL.md（workspace 元数据已指向目标目录）"
+echo "    写入 .dsh/skills/project-supervisor/（SKILL.md + templates/ 4 个模板；workspace 元数据已指向目标目录）"
 
 # 2.5) 提示词润色技能（主管默认开启，可由 DSH「主管」面板开关关闭）
 #      完整技能目录：SKILL.md + LICENSE + references/（14 个 .md）+ templates/（2 个 .md）
@@ -93,9 +99,9 @@ fi
 if [ "$GLOBAL_SKILL" -eq 1 ]; then
   DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
   mkdir -p "$DSH_HOME/skills/project-supervisor" "$DSH_HOME/skills/improving-prompts"
-  cp "$KIT_DIR/skill/SKILL.md" "$DSH_HOME/skills/project-supervisor/SKILL.md"
+  cp -R "$SKILL_SRC/." "$DSH_HOME/skills/project-supervisor/"
   cp -R "$KIT_DIR/skill-improving-prompts/." "$DSH_HOME/skills/improving-prompts/"
-  echo "    已安装全局技能: $DSH_HOME/skills/project-supervisor/SKILL.md（任意工作区说「你当项目主管」即可）"
+  echo "    已安装全局技能: $DSH_HOME/skills/project-supervisor/（SKILL.md + templates/，任意工作区说「你当项目主管」即可）"
   echo "    已安装全局技能: $DSH_HOME/skills/improving-prompts/（SKILL.md + LICENSE + references/ + templates/）"
 fi
 
