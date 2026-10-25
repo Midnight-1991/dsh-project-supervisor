@@ -1,6 +1,6 @@
 # 调研总览：vibe coding「项目主管」怎么当
 
-> 调研日期：2026-10-24。方法：项目主管并行开启 4 个研究对话框（各写各的文件、写范围互不重叠），产出 4 份调研报告；后续按功能/评审/学习追加 6 份专题报告（05 验收评审、06 零基础保护评审、07 新项目需求追问、08 追问评审、09 superpowers 学习笔记、10 工作流硬化评审）。主管再抽样核验引用（GitHub API 核对仓库与星数、抽查链接可访问性、核对官方文档原文）。
+> 调研日期：2026-10-24。方法：项目主管并行开启 4 个研究对话框（各写各的文件、写范围互不重叠），产出 4 份调研报告；后续按功能/评审/学习追加 7 份专题报告（05 验收评审、06 零基础保护评审、07 新项目需求追问、08 追问评审、09 superpowers 学习笔记、10 工作流硬化评审、11 安装器修复复核）。主管再抽样核验引用（GitHub API 核对仓库与星数、抽查链接可访问性、核对官方文档原文）。
 >
 > 事实快照：2026-10-24。星数、外部链接、DSH 版本与源码行号都会漂移；复检用 `setup/verify-facts.sh`（自动抽查链接 / GitHub 星数 / DSH 常量，DSH 升级后跑）；精确数值请以复检输出为准。
 
@@ -18,6 +18,7 @@
 | [08-interview-review.md](08-interview-review.md) | 新项目需求追问功能的独立只读评审 | 「有条件通过」：2 项 blocking（触发判据把套件 AGENTS.md 当旧项目证据、批数上限矛盾）已修，9 条 advisory 已处理 |
 | [09-superpowers-learning.md](09-superpowers-learning.md) | superpowers 项目（MIT）可迁移的 14 个工作流机制 | 值得学的是流程而非口号：计划落文件 + 任务 brief、每任务实现/评审分离、完成声明过验证门、返工有上限、裁决进账本 |
 | [10-hardening-review.md](10-hardening-review.md) | 工作流硬化 14 条与套件 v1.8.0 的独立只读评审 | 「有条件通过」：3 项 blocking（AGENTS 命令模板与两段式冲突/套件漂移/SKILL 体积口径）已修，修后 scoped re-review 复核通过 |
+| [11-installer-fixes-review.md](11-installer-fixes-review.md) | 四个安装器按第三方审查修复后的独立复核 | **「通过」无 blocking**：高危 3 / 中危 4 / 低危 8 全部 PASS（dry-run 零写入、force 升级、损坏 JSON 非 0、copy 卸载、无 python3）；3 项 advisory 已处理（11 排除清单/打包 sha 说明/sync 收尾） |
 
 ## 交叉结论（至少两份报告共同支持）
 

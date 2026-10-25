@@ -2,6 +2,15 @@
 
 格式：`## [版本] 日期` + 变更分类。版本号与 `setup/VERSION` 保持一致。
 
+## [1.8.1] 2026-10-25
+
+### 安装器审查修复（第三方静态审查）
+
+- **kit 安装器**（`install-supervisor.sh` / `.mjs`）：`--dry-run` 改为真正的零写入（只预检 + 输出计划）；`--force` 优先且按模板首行标记精确判断（覆盖前备份 `*.bak.<YYYYmmdd-HHMMSS>`）；安装成功后写 `<工作区>/.dsh/supervisor-kit.json`（name/version/installedAt/installer，重复安装报告已装版本）；默认只补缺失文件（`research/`、`patches/`、`AGENTS.supervisor.md` 不再被无条件覆盖）；任何写操作前完整预检，缺文件一次列全并 exit 1；`--dsh-home` 缺值显式报错；**bash 版不再依赖 python3**（用 Node 改写技能 workspace 元数据），仅需 Node ≥18；修 bash 3.2 + 中文 locale 下全角字符吞变量的 bug（`${VAR}`）。
+- **插件安装器**（`plugin/dsh-project-supervisor/install-plugin.sh` / `.mjs`）：**删除 python3 依赖**（Node helper；退出码只把 10 当「未安装/已最新」，损坏 JSON/权限错误一律 exit 1，不再静默成功）；安装后写 `<profile>/.dsh-project-supervisor.json`（version/installedAt/mode/pluginDir）；卸载前备份 profile、copy 模式真实目录递归删除、重复卸载幂等；建链/复制前安全删除旧条目（修 `ln -sfn` 遇真实目录产生嵌套的问题）；mjs 默认 profile 支持 `DSH_HOME` / `PROFILE`；copy 回退按 `files` 白名单且排除 `.git`/`node_modules`/`screenshots`/`kit`/`dist`/`.backups`；Windows 卸载提示补齐 `--profile`。
+- **测试与文档**：`selftest.sh` 13 → **18 项**（新增 dry-run 零写入、force 升级 + 版本记录、预检失败零写入、无 python3 动态断言、插件安装器健壮性）；实测 selftest 18/18、插件安装器 26 条断言 PASS、kit 安装器 46 条断言 PASS、真实 profile 未被触碰；`安装说明.md` / `朋友测试指南.md` / 插件 README / 公开 README 同步安装行为与新参数。
+- **版本**：套件 1.8.0 → **1.8.1**；插件 0.5.0 → **0.5.1**。
+
 ## [1.8.0] 2026-10-25
 
 ### 工作流硬化与技能模板分发（套件）

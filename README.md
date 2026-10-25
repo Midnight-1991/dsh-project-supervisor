@@ -72,7 +72,7 @@ node kit/install-supervisor.mjs C:\path\to\your-workspace --with-research
 
 - macOS：完整实测（DSH `0.2.0-rc.2`，Chrome/Web GUI）。
 - Windows：安装器与路径/HTTP 链路有 `compat-check` 32 项离线断言，但**尚未在真实 Windows 机器上端到端实测**；装了遇到崩溃请附 `~/.dsh` 日志反馈。
-- Linux：未实测；脚本为纯 bash/Node，理论可用。
+- Linux：未实测；安装脚本只需 Node.js（推荐 `node kit/install-supervisor.mjs` 或 `bash kit/install-supervisor.sh`，均不需要 python3）；可选的对话框权限补丁另需 python3。
 
 ## 仓库结构 / Layout
 
@@ -89,7 +89,7 @@ node kit/install-supervisor.mjs C:\path\to\your-workspace --with-research
     ├── 主管手册.md
     ├── .dsh/skills/  # project-supervisor + improving-prompts
     ├── setup/        # install / sync / build-dist / selftest / verify-facts / patches
-    └── research/     # 设计依据与调研（8 份报告 + 决策记录）
+    └── research/     # 调研与专题报告（含 superpowers 学习笔记；不含内部评审）
 ```
 
 ## 开发与自测 / Development
@@ -109,7 +109,7 @@ node kit/install-supervisor.mjs /tmp/test-workspace --with-research  # Windows/�
 
 ## 状态 / Status
 
-**Beta（测试中）**。当前：插件 0.5.0 / 规则套件 1.8.0。已完成：面板 UI、四类配置、跨平台崩溃安全、工作流硬化 14 条 + 技能模板分发（v1.8.0）、套件安装/分享、独立评审修复；未完成：Windows 真机 e2e、更多真实项目演练、DSH 版本升级后的兼容回归。
+**Beta（测试中）**。当前：插件 0.5.1 / 规则套件 1.8.1。已完成：面板 UI、四类配置、跨平台崩溃安全、工作流硬化 14 条 + 技能模板分发（v1.8.0）、套件安装/分享、独立评审修复、安装器审查修复（dry-run 零写入 / force 升级 / 无 python3）；未完成：Windows 真机 e2e、更多真实项目演练、DSH 版本升级后的兼容回归。
 
 ## 许可证与第三方 / License
 

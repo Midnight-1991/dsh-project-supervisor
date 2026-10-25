@@ -18,7 +18,7 @@
   const PACKAGE_ID = 'dsh-project-supervisor';
   const NS = 'projectSupervisor';
   const PANEL_ID = 'supervisor';
-  const VERSION = '0.5.0';
+  const VERSION = '0.5.1';
   const STYLE_ID = 'dsh-project-supervisor/style';
 
   loader.load({
@@ -36,7 +36,7 @@
         nav: '主管',
         title: '项目主管',
         subtitle: '中枢决策 · 并行派发 · 验收闭环',
-        versionTag: '实验插件 v0.5.0',
+        versionTag: '实验插件 v0.5.1',
         modeCardTitle: '主管工作模式',
         modeHint: '决定主管亲自做还是派给对话框。切换立刻保存，只影响之后的任务，进行中的任务不中断。',
         modeEfficiency: '效率优先',
@@ -158,7 +158,7 @@
         nav: 'Supervisor',
         title: 'Project Supervisor',
         subtitle: 'Central decisions · parallel dispatch · verified delivery',
-        versionTag: 'experimental plugin v0.5.0',
+        versionTag: 'experimental plugin v0.5.1',
         modeCardTitle: 'Supervisor mode',
         modeHint: 'Choose whether the supervisor writes itself or dispatches every write to a dialog. Saved immediately; applies to new tasks only.',
         modeEfficiency: 'Efficiency first',
