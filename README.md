@@ -6,6 +6,7 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![beta](https://img.shields.io/badge/status-beta-orange.svg)](#状态--status)
 [![dsh plugin](https://img.shields.io/badge/dsh-plugin-purple.svg)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin)
+[![Listed in awesome-dsh-plugin](https://img.shields.io/badge/awesome--dsh--plugin-listed-2ea44f.svg)](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/data/plugins/Midnight-1991__dsh-project-supervisor.yml)
 
 **把 DSH 变成项目主管**：常驻作业规则 + 并行对话框调度 + Web「主管」面板。
 **A project supervisor for DeepSeek Harness**: standing rules, parallel teammate dialogs, and a supervisor panel.
