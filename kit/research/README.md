@@ -20,8 +20,6 @@
 | 10-hardening-review.md（内部评审，不随包分发） | 工作流硬化 14 条与套件 v1.8.0 的独立只读评审 | 「有条件通过」：3 项 blocking（AGENTS 命令模板与两段式冲突/套件漂移/SKILL 体积口径）已修，修后 scoped re-review 复核通过 |
 | 11-installer-fixes-review.md（内部评审，不随包分发） | 四个安装器按第三方审查修复后的独立复核 | **「通过」无 blocking**：高危 3 / 中危 4 / 低危 8 全部 PASS（dry-run 零写入、force 升级、损坏 JSON 非 0、copy 卸载、无 python3）；3 项 advisory 已处理（11 排除清单/打包 sha 说明/sync 收尾） |
 | 12-public-repo-review.md（内部评审，不随包分发） | 公开仓库对外文档/安装/发布链审查 | 「有条件通过」：2 项 blocking（zip 路线命令/目录名错、版本状态滞后）已修，12 advisory 处理（v1.8.4） |
-| 13 | [模型分工 P0（子智能体跨模型）](13-model-routing-p0.md) | 2026-10-29 | DSH 能力边界、角色→路由表、配置/隐私/降级、A-B 验证 |
-| 14 | [模型分工 P0 跨模型评审（v4-pro）](14-model-routing-p0-review.md) | 2026-10-29 | 有条件通过 → 1 blocking + 4 advisory 已修 |
 
 ## 交叉结论（至少两份报告共同支持）
 

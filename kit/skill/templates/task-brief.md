@@ -4,7 +4,7 @@
 
 - 任务 id / 名称：
 - 计划引用：<plan.md 路径 + 任务行号>
-- 模型：<默认 或 provider/model/effort；跨模型仅 subagent，派发前用 list_subagent_models 校验；评审须与实现不同模型>
+- 建议模型档位：高 / 中 / 低（DSH 暂不支持按任务选模型，仅作记录与未来兼容）
 - 前置基线：`git status` 干净，或已记录基线（附 `git status --porcelain` 输出）
 - 权限：继承创建时固定（审批 never）；越权上报不重试；需要更大权限先停下请用户调整
 - 当前状态：planned / in_progress

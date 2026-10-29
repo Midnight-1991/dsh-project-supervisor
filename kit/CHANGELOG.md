@@ -2,16 +2,6 @@
 
 格式：`## [版本] 日期` + 变更分类。版本号与同目录 `VERSION` 一致（源工作区为 `setup/VERSION`）。
 
-## [1.9.0] 2026-10-29
-
-### 模型分工 P0（子智能体跨模型 + 跨模型评审）
-
-- 新增主管技能参考 `.dsh/skills/project-supervisor/references/model-routing.md`：能力边界（subagent 可选模型、teammate 继承默认）、本机路由表（flash / v4-pro）、角色→模型策略、派发流程、可选 `.dsh/model-routing.json`、隐私开关 `allowExternalModels`、降级规则、A/B 验证与反模式。
-- 规则载体：AGENTS 新增「模型分工」段并把命令模板「建议模型档位」改为可执行的「模型」字段；SKILL 新增同名章节、工作流硬化第 12 条改为模型分工；四个模板加模型字段（task-brief/plan/review-gate/ledger）。
-- 文档：主管手册新增「模型分工（P0）」章节（路由表/配置示例/限制/A-B）、文件地图加 `references/` 行；`research/13-model-routing-p0.md` 记录范围与验收。
-- 分发：sync-kit 同步整个技能目录（含 `references/`，逐字节、--check 覆盖、多余文件漂移）；两个安装器的预检与复制涵盖 `references/`；build-dist 必需文件与 zip 抽查加 `skill/references/model-routing.md`。
-- 验证：verify-facts（AGENTS ≤10000B、SKILL ≤32000B）、sync 一致性、selftest、跨模型评审（实现用 flash、评审用 v4-pro）。
-
 ## [1.8.4] 2026-10-25
 
 ### 公开仓库审查修复（对外文档 / 自测 / 分发一致性）

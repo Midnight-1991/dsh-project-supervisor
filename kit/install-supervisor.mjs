@@ -136,7 +136,6 @@ function precheck(kit, options) {
   requireFile('DECISIONS.template.md');
   requireFile('VERSION');
   requireFile('skill/SKILL.md');
-  requireFile('skill/references/model-routing.md');
   for (const name of PROJECT_SKILL_TEMPLATES) requireFile('skill/templates/' + name);
   requireFile('skill-improving-prompts/SKILL.md');
   requireFile('skill-improving-prompts/LICENSE');

@@ -28,10 +28,10 @@
 
 ## 任务表
 
-| # | 任务 | 写范围（文件/目录） | 依赖 | 验收命令/检查 | 模型（provider/model 或默认） | 状态 | reviewer |
+| # | 任务 | 写范围（文件/目录） | 依赖 | 验收命令/检查 | 建议模型 | 状态 | reviewer |
 |---|---|---|---|---|---|---|---|
-| 1 |  |  | - |  | 默认 | planned |  |
-| 2 |  |  | 1 |  | 默认 | planned |  |
+| 1 |  |  | - |  | 中 | planned |  |
+| 2 |  |  | 1 |  | 中 | planned |  |
 
 状态取值：planned / in_progress / review / done / blocked。
 
