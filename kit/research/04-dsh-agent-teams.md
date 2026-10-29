@@ -16,7 +16,7 @@ DSH 里对象分三层，工作区的「对话框」= **Session**：
 
 | 能力 | 语义与边界 |
 |---|---|
-| `spawn_teammate` | 仅 Lead 可调；`context=fresh`（默认，不继承 Lead 记忆）或 `fork`（只捕获一次 Lead 已完成 turn 前缀）；名字小写 kebab、永久保留、绝不复用；`maxMembers=16`（含失败成员） |
+| `spawn_teammate` | 仅 Lead 可调；`context=fresh`（默认，不继承 Lead 记忆）或 `fork`（只捕获一次 Lead 已完成 turn 前缀）；名字小写 kebab、永久保留、绝不复用；`maxMembers` 包默认 16、本机 profile 组合包为 8（含失败成员） |
 | `send_message` | 任何成员→任何成员/Lead，持久不丢不重复；running 目标在最近步骤边界 Steer，inactive 目标启动或冷恢复；结果 `accepted`/`queued`，**queued 已持久化，绝不能重发**；`maxPendingMessagesPerMember=64`、`maxMessageBytes=65536` |
 | `list_agents` | 返回成员 `target` 与可用性（`running`/`inactive`/`provisioning`/`failed`）；`inactive` 只表示无轮次执行 |
 | `wait_agent` | 等待下一次 roster/消息/任务变化；10s–1h（默认 30s），只报告超时与否；不唤醒 inactive 成员；无 running/provisioning 时立即 `noProgress` |

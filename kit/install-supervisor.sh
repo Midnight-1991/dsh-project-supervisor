@@ -131,6 +131,7 @@ need_file 主管手册.md
 need_file DECISIONS.template.md
 need_file VERSION
 need_file skill/SKILL.md
+need_file skill/references/model-routing.md
 for tpl in plan.md task-brief.md ledger.md review-gate.md; do
   need_file "skill/templates/$tpl"
 done

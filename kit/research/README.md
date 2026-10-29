@@ -20,6 +20,8 @@
 | 10-hardening-review.md（内部评审，不随包分发） | 工作流硬化 14 条与套件 v1.8.0 的独立只读评审 | 「有条件通过」：3 项 blocking（AGENTS 命令模板与两段式冲突/套件漂移/SKILL 体积口径）已修，修后 scoped re-review 复核通过 |
 | 11-installer-fixes-review.md（内部评审，不随包分发） | 四个安装器按第三方审查修复后的独立复核 | **「通过」无 blocking**：高危 3 / 中危 4 / 低危 8 全部 PASS（dry-run 零写入、force 升级、损坏 JSON 非 0、copy 卸载、无 python3）；3 项 advisory 已处理（11 排除清单/打包 sha 说明/sync 收尾） |
 | 12-public-repo-review.md（内部评审，不随包分发） | 公开仓库对外文档/安装/发布链审查 | 「有条件通过」：2 项 blocking（zip 路线命令/目录名错、版本状态滞后）已修，12 advisory 处理（v1.8.4） |
+| 13 | [模型分工 P0（子智能体跨模型）](13-model-routing-p0.md) | 2026-10-29 | DSH 能力边界、角色→路由表、配置/隐私/降级、A-B 验证 |
+| 14 | [模型分工 P0 跨模型评审（v4-pro）](14-model-routing-p0-review.md) | 2026-10-29 | 有条件通过 → 1 blocking + 4 advisory 已修 |
 
 ## 交叉结论（至少两份报告共同支持）
 
@@ -57,7 +59,7 @@
 - GitHub API 逐个核对被引仓库：DevSupervisor 27★、vibectl 5★（原 jonradoff 301 迁移）、spec-kit 142,666★、BMAD 54,493★、agent-os 5,538★、pi-super-devteam 0★、AIPM-Wiki 430★、aipm-skill-pack 1★、agency-agents-zh 21,550★、vibe-coding-guide 16★、project-dev-orchestration 0★、MetaGPT 71,004★、ChatDev 34,584★、Swarm 22,073★、LangGraph-supervisor 1,657★、AgentScope 33,812★、AutoGen 61,545★——均存在；星数为 2026-10-24 抓取值，允许 ±1★ 正常漂移（spec-kit 实测 142,665 vs 报告 142,666）；评审补核 4 个中文仓库 ShanchunAI_Protocol_16Layers 0★、vibe-coding-cn≈18k、ai-guide≈22k、Vibe_coding_guide 239★，均一致（仓库存档说明 `agency-agents-zh` 的 About 写 277 角色/20 部门，README 写 328 角色/22 部门，报告采用 README 数字）。
 - 链接可访问性抽查：`code.claude.com/docs/en/agent-teams`（官方文档原文核对，含「避免文件冲突」「Lead 不要抢活」「3–5 人」等说法）、`raw.githubusercontent.com/.../DevSupervisor/main/docs/agent-loop.md` 200、掘金/腾讯云文章 200、langgraph-supervisor-py 与 AgentScope 仓库 200。
 - 以下来源 2026-10-24 复核可访问（HTTP 200）并读到原文，已从「二手」升级为已核验：`anthropic.com/engineering/built-multi-agent-research-system`（原文「multi-agent systems use about 15× more tokens than chats」）、`cognition.ai/blog/dont-build-multi-agents`（两原则「Share context」「Actions carry implicit decisions」）。若换网络环境被反爬，按二手对待。
-- DSH 侧核验：`AGENTS.md` 与 `.dsh/skills/project-supervisor/SKILL.md` 创建后均在当前会话即时生效（无需重启/新会话）；`maxMembers=16`、`maxTasks=256`、`maxPendingMessagesPerMember=64`、`maxMessageBytes=65536` 已在 `dsh-experimental-agent-team/lib/index.js` 行号级核对。
+- DSH 侧核验：`AGENTS.md` 与 `.dsh/skills/project-supervisor/SKILL.md` 创建后均在当前会话即时生效（无需重启/新会话）；`maxMembers` 包默认 16 / 本机 profile 为 8、`maxTasks=256`、`maxPendingMessagesPerMember=64`、`maxMessageBytes=65536` 已在 `dsh-experimental-agent-team/lib/index.js` 行号级核对。
 
 ## 局限与存疑
 
@@ -70,3 +72,4 @@
 ## 一句话给未来会话
 
 **主管负责把模糊目标变成可验证的契约，并把契约派给独立的对话框；验收看证据，不看口头承诺。**
+- `INCIDENT-2026-10-25.md`：发布脚本 rsync 覆盖事故报告（错误提交保留与影响矩阵，D42）
