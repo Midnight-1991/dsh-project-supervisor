@@ -34,6 +34,31 @@ metadata:
 9. **尊重权限边界**：不修改审批策略、沙箱模式或权限预设，也不给对话框下放更高权限；子对话框权限在创建时固定、审批固定 `never`，需要审批的动作会被自动拒绝且内部无法提权。遇到越权需求先上报用户，不重试被拒绝的操作；写范围只是提示，验收要按文件清单核对。（可选增强：若 DSH 已应用 `team-permissions` 补丁，派发时可按风险给 `spawn_teammate` 传 `sandbox`（调研/评审 `read-only`、实现 `workspace-write`、`danger-full-access` 仅用户明确要求）与 `tools`（调研/评审可传 `read-only`：只保留读/检索/汇报工具，不能写文件或跑 bash）；未装补丁不要传。）
 10. **工作流硬化**：计划/两段式/Gate/账本按「工作流硬化」章节执行；完成声明必须过 Gate，返工有上限。
 
+## 模型协作（默认关，面板可开）
+
+配置在 `.dsh/supervisor.config.json` 的 `modelCollaboration`：`{enabled, mode, assignments, autoRoutes}`。
+- `enabled:false`（默认）：按「模型分级」建议，不强制跨模型。
+- `enabled:true, mode:"auto"`：按可编辑路由表 `autoRoutes` 选模型（空=按强弱默认：规划/评审用更强模型，实现/调研/文档/测试用快模型）；模型下拉来自本机 `/models` 动态枚举（失败回退内置两档）。
+- `enabled:true, mode:"manual"`：严格按 `assignments` 的 `provider/model` 派发；空串=DSH 默认。
+- 仅 `subagent` 支持指定模型（`provider`+`model` 必须成对，可加 `reasoning_effort`）；`spawn_teammate` 不能选模型。
+- 命令写明「模型：provider/model/effort」；report 与 ledger 各记行；不支持说明原因并回落。
+
+## 团队复用与派发（优先唤醒，不新开）
+
+**目标**：把「每次新开」变成「优先唤醒已有成员」。成员是持久会话、唤醒后继承旧上下文；团队名额有硬上限、roster 只增不减（无删除/重命名 API），所以按**角色**复用、不按任务 spawn。
+
+**派发顺序**：① `list_agents` 查可用性 + 对照 `.dsh/team-roster.md` 角色卡；② 有匹配 inactive 成员 → `send_message` 唤醒，消息带 warm-start 简报（`templates/wake-brief.md`：HEAD/规则版本/任务/写范围/验收 + 先回 ≤120 字对齐摘要，主管确认后再动手）；③ 只有角色缺失、写范围冲突或必须 fresh 才 `spawn_teammate`；④ 名额满不得 spawn（包默认 16，本机 profile 若另设以 profile 为准）：复用/串行/报阻塞；⑤ 复用仍守「写者不给自己签收」。
+
+**角色卡**：按名册固定席位（kit-engineer 套件/脚本/分发；patch-engineer DSH 补丁/插件 host；reviewer-accept、reviewer-beginner 独立评审；researcher-* 调研；其余补 ui-engineer/verifier/docs）。卡字段：职责边界、允许写范围、最近任务、唤醒前必读、健康检查句。
+
+**陈旧上下文**：同成员连续 3 次任务或规则大改后先做版本重对齐（不直接派活）；版本落后先让其读 AGENTS/SKILL；对齐摘要留档到账本。
+
+**teammate vs subagent**：多轮/共享任务板/有写范围/需长期记忆 → teammate 复用；只读/单文件/一次性 → subagent（不占名额、便宜）；跨模型（如 v4-pro）→ subagent（teammate 不能选模型）；简单任务不并行（token≈15×）。
+
+**度量**：每项目维护 `.dsh/team-ledger.md`：复用派发÷总派发、spawn 次数、重新对齐成本、一次通过率、死领率；收尾更新。禁止为指标硬复用——同一成员失败 2 次即换人或升级。
+
+**边界**：roster 无删除/重命名；失败成员占坑；复活成员上下文可能陈旧（简报+对齐摘要校准）。
+
 ## 工作流硬化（14 条硬机制）
 
 > 来源：内部调研笔记 `research/09-superpowers-learning.md`（随套件 research/；上游 obra/superpowers，MIT）。模板在 `templates/`。

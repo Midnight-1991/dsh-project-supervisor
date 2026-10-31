@@ -20,11 +20,26 @@ const workspace = path.join(root, 'ws');
 mkdirSync(workspace, { recursive: true });
 const configFile = path.join(workspace, '.dsh', 'supervisor.config.json');
 
-let route;
+const routes = new Map();
+const fakeLlm = {
+  listProviders() {
+    return [{ id: 'deepseek-official', name: 'DeepSeek' }];
+  },
+  async listModels(providerId) {
+    if (providerId !== 'deepseek-official') return [];
+    return [
+      { id: 'deepseek-flash', name: 'DeepSeek Flash' },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+    ];
+  },
+};
 const ctx = {
+  get(name) {
+    return name === 'llm' ? fakeLlm : undefined;
+  },
   webServer: {
     register(value) {
-      route = value;
+      routes.set(value.path, value);
       return () => {};
     },
   },
@@ -70,10 +85,10 @@ function makeReq({ method = 'GET', url = '/', origin, host = '127.0.0.1:3080', b
   return stream;
 }
 
-async function call({ body, ...options } = {}) {
+async function call({ body, handler: targetHandler, ...options } = {}) {
   const req = makeReq({ ...options, body });
   const res = makeRes();
-  await route.handler(req, res);
+  await (targetHandler || route).handler(req, res);
   let json = null;
   try {
     json = JSON.parse(res.state.body);
@@ -87,13 +102,24 @@ function urlFor(cwd) {
   return '/plugins/dsh-project-supervisor/config?cwd=' + encodeURIComponent(cwd);
 }
 
+let configRoute;
+let modelsRoute;
+let route;
+
 try {
   assert.ok(inject.includes('webServer'), 'host half must declare webServer injection');
   apply(ctx);
-  assert.equal(route.kind, 'exact');
-  assert.equal(route.path, '/plugins/dsh-project-supervisor/config');
-  assert.equal(typeof route.handler, 'function');
-  pass('host half registers the exact config route on webServer');
+  configRoute = routes.get('/plugins/dsh-project-supervisor/config');
+  modelsRoute = routes.get('/plugins/dsh-project-supervisor/models');
+  route = configRoute;
+  assert.ok(configRoute, 'config route must be registered');
+  assert.ok(modelsRoute, 'models route must be registered');
+  assert.equal(configRoute.kind, 'exact');
+  assert.equal(configRoute.path, '/plugins/dsh-project-supervisor/config');
+  assert.equal(typeof configRoute.handler, 'function');
+  assert.equal(modelsRoute.kind, 'exact');
+  assert.equal(modelsRoute.path, '/plugins/dsh-project-supervisor/models');
+  pass('host half registers the exact config and models routes on webServer');
 
   let result = await call({ url: urlFor(workspace) });
   assert.equal(result.status, 200);
@@ -263,11 +289,161 @@ try {
   assert.equal(result.json.error, 'invalid-requirement-interview');
   pass('POST with no boolean switch, or a non-boolean switch, is rejected');
 
+  // ---- model collaboration group ----
+  result = await call({ url: '/plugins/dsh-project-supervisor/config?cwd=' + encodeURIComponent(workspace) });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.modelCollaboration.enabled, false);
+  assert.equal(result.json.modelCollaboration.mode, 'auto');
+  assert.equal(result.json.modelCollaboration.assignments.review, '');
+  pass('GET returns modelCollaboration defaults (off / auto / empty assignments)');
+
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({
+      cwd: workspace,
+      modelCollaboration: {
+        enabled: true,
+        mode: 'manual',
+        assignments: { review: 'deepseek-official/deepseek-v4-pro', implement: 'deepseek-official/deepseek-flash' },
+      },
+    }),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.modelCollaboration.enabled, true);
+  assert.equal(result.json.modelCollaboration.mode, 'manual');
+  assert.equal(result.json.modelCollaboration.assignments.review, 'deepseek-official/deepseek-v4-pro');
+  let storedCollab = JSON.parse(readFileSync(configFile, 'utf8'));
+  assert.equal(storedCollab.modelCollaboration.assignments.implement, 'deepseek-official/deepseek-flash');
+  pass('POST can enable modelCollaboration with manual assignments');
+
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { enabled: false } }),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.modelCollaboration.enabled, false);
+  assert.equal(result.json.modelCollaboration.mode, 'manual');
+  assert.equal(result.json.modelCollaboration.assignments.review, 'deepseek-official/deepseek-v4-pro');
+  pass('partial modelCollaboration update keeps mode and assignments');
+
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { mode: 'sometimes' } }),
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.json.error, 'invalid-model-mode');
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { assignments: { review: 'not a route' } } }),
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.json.error, 'invalid-model-route');
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { assignments: { deploy: 'x/y' } } }),
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.json.error, 'invalid-model-task');
+  storedCollab = JSON.parse(readFileSync(configFile, 'utf8'));
+  assert.equal(storedCollab.modelCollaboration.assignments.review, 'deepseek-official/deepseek-v4-pro');
+  pass('invalid model mode / route / task are rejected without touching the file');
+
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://evil.example',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { enabled: true } }),
+  });
+  assert.equal(result.status, 403);
+  storedCollab = JSON.parse(readFileSync(configFile, 'utf8'));
+  assert.equal(storedCollab.modelCollaboration.enabled, false);
+  pass('cross-origin modelCollaboration POST is rejected');
+
   result = await call({ url: '/plugins/dsh-project-supervisor/config?cwd=relative/path' });
   assert.equal(result.status, 400);
   result = await call({ url: '/plugins/dsh-project-supervisor/config?cwd=/etc' });
   assert.equal(result.status, 400);
   pass('invalid / outside-home workspace paths are rejected');
+
+  // ---- live model routes endpoint ----
+  result = await call({ handler: modelsRoute, url: '/plugins/dsh-project-supervisor/models' });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.ok, true);
+  assert.equal(result.json.routes.length, 2);
+  assert.equal(result.json.routes[0].provider, 'deepseek-official');
+  assert.equal(result.json.routes[0].model, 'deepseek-flash');
+  assert.equal(result.json.routes[1].model, 'deepseek-v4-pro');
+  pass('GET /models enumerates the live provider/model routes');
+
+  result = await call({ handler: modelsRoute, method: 'POST', url: '/plugins/dsh-project-supervisor/models' });
+  assert.equal(result.status, 405);
+  result = await call({
+    handler: modelsRoute,
+    url: '/plugins/dsh-project-supervisor/models',
+    origin: 'http://evil.example',
+  });
+  assert.equal(result.status, 403);
+  pass('/models rejects non-GET and cross-origin requests');
+
+  // ---- auto routing table (autoRoutes) ----
+  result = await call({ url: '/plugins/dsh-project-supervisor/config?cwd=' + encodeURIComponent(workspace) });
+  assert.equal(result.json.modelCollaboration.autoRoutes.review, '');
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({
+      cwd: workspace,
+      modelCollaboration: {
+        enabled: true,
+        mode: 'auto',
+        autoRoutes: { review: 'deepseek-official/deepseek-v4-pro', implement: 'deepseek-official/deepseek-flash' },
+      },
+    }),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.modelCollaboration.autoRoutes.review, 'deepseek-official/deepseek-v4-pro');
+  assert.equal(result.json.modelCollaboration.mode, 'auto');
+  pass('POST can write the auto routing table');
+
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { assignments: { docs: 'deepseek-official/deepseek-flash' } } }),
+  });
+  assert.equal(result.status, 200);
+  assert.equal(result.json.modelCollaboration.autoRoutes.review, 'deepseek-official/deepseek-v4-pro');
+  assert.equal(result.json.modelCollaboration.assignments.docs, 'deepseek-official/deepseek-flash');
+  pass('partial update keeps autoRoutes and assignments independent');
+
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { autoRoutes: { deploy: 'x/y' } } }),
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.json.error, 'invalid-model-task');
+  result = await call({
+    method: 'POST',
+    url: '/plugins/dsh-project-supervisor/config',
+    origin: 'http://127.0.0.1:3080',
+    body: JSON.stringify({ cwd: workspace, modelCollaboration: { autoRoutes: { review: 'not a route' } } }),
+  });
+  assert.equal(result.status, 400);
+  assert.equal(result.json.error, 'invalid-model-route');
+  pass('autoRoutes rejects unknown tasks and malformed routes');
 
   result = await call({ method: 'PUT', url: '/plugins/dsh-project-supervisor/config' });
   assert.equal(result.status, 405);

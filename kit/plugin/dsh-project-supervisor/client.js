@@ -18,7 +18,7 @@
   const PACKAGE_ID = 'dsh-project-supervisor';
   const NS = 'projectSupervisor';
   const PANEL_ID = 'supervisor';
-  const VERSION = '0.5.1';
+  const VERSION = '0.7.3';
   const STYLE_ID = 'dsh-project-supervisor/style';
 
   loader.load({
@@ -36,7 +36,7 @@
         nav: '主管',
         title: '项目主管',
         subtitle: '中枢决策 · 并行派发 · 验收闭环',
-        versionTag: '实验插件 v0.5.1',
+        versionTag: '实验插件 v0.7.3',
         modeCardTitle: '主管工作模式',
         modeHint: '决定主管亲自做还是派给对话框。切换立刻保存，只影响之后的任务，进行中的任务不中断。',
         modeEfficiency: '效率优先',
@@ -46,6 +46,31 @@
         modeAria: '主管工作模式选择',
         modeSaved: '已切换工作模式（已写入 .dsh/supervisor.config.json）',
         modeLocalSaved: '已切换工作模式（已存浏览器；重启 DSH 后请再选一次）',
+        collabTitle: '模型协作（默认关）',
+        collabHint: '开启后主管按任务类型给 subagent 选模型；只影响之后的派发，开关与映射写入 .dsh/supervisor.config.json。',
+        collabOn: '开',
+        collabOff: '关',
+        collabAria: '模型协作开关',
+        collabModeAria: '模型选择方式',
+        collabSaved: '模型协作设置已保存（已写入 .dsh/supervisor.config.json）',
+        collabLocalSaved: '模型协作设置已存浏览器（重启 DSH 后请重新设置）',
+        collabAuto: 'AI 自动选择',
+        collabAutoDesc: '按任务类型自动挑模型：规划/评审用更强模型，实现/调研/文档用快模型。',
+        collabManual: '用户手动选择',
+        collabManualDesc: '为每类任务单独指定模型；未指定的用 DSH 默认。',
+        collabAssignAria: '任务类型到模型的选择',
+        collabTaskPlanning: '规划 / 架构',
+        collabTaskImplement: '实现编码',
+        collabTaskReview: '独立评审',
+        collabTaskResearch: '调研检索',
+        collabTaskDocs: '文档整理',
+        collabTaskVerify: '测试验证',
+        collabModelDefault: '默认（不指定）',
+        collabRouteHint: '可选路由来自本机 list_subagent_models；选完立即保存。',
+        collabAutoRoutesAria: '自动模式的路由表',
+        collabAutoRoutesHint: '自动模式按这张表派发；「推荐默认」= 按任务强弱自动挑。模型列表来自本机 LLM 路由。',
+        collabAutoDefault: '推荐默认',
+        collabNote: '仅对 subagent 派发生效；team 成员（teammate）不能选模型。',
         projectTitle: '选择项目',
         projectHint: '自检读取「最近会话所属工作区」的根目录；切换项目可查看其他工作区。',
         refresh: '刷新自检',
@@ -133,24 +158,36 @@
         copyKickoffDone: '已复制开工口令',
         copyInstall: '复制「安装到其他工作区」命令',
         copyInstallDone: '已复制安装命令',
-        copyRules: '复制规则文件路径',
-        copyRulesDone: '已复制规则路径',
+        copyBootstrap: '复制一键安装口令（新工作区）',
+        copyBootstrapDone: '已复制一键安装口令',
         quickHelpShow: '说明',
         quickHelpHide: '收起',
         quickHelpAria: '展开说明：',
-        quickKickoffWhy: '作用：把一段标准开工口令放进剪贴板，粘贴给主管即可。口令里已经写死「先定完成定义 → 拆工作项 → 并行派发 → 亲自验收」，避免主管闷头写代码。',
+        quickKickoffWhy: '作用：把一段标准开工口令放进剪贴板，粘贴给主管即可。口令含目标占位、完成定义/分解/并行/验收要求，并附上规则文件路径（AGENTS.md、SKILL.md、主管手册），主管开工先读。',
         quickInstallWhy: '作用：复制一条命令，把主管规则、技能、手册和调研资料安装到另一个工作区。对方解压分享包后运行即可；换电脑、给朋友用都靠它。',
-        quickRulesWhy: '作用：复制规则文件路径（AGENTS.md 与项目级 SKILL.md）。在别的会话里引用规则、做评审，或自己打开看全文时用。',
+        quickBootstrapWhy: '作用：复制一段「一键安装口令」。粘贴到任意新工作区的新会话，agent 会自己从 GitHub 下载套件并装进当前工作区、逐项验收；装完再新建会话让常驻规则生效。',
         copyFailed: '复制失败，请手动选择文本复制',
         teamHint: '并行对话框在会话页头「智能体团队」里查看：成员、任务板与消息都在那里。',
         footerRules: '规则载体：AGENTS.md（常驻）+ .dsh/skills/project-supervisor/SKILL.md（详细流程）。',
-        footerReadonly: '本面板基本只读；写操作仅限三个开关与派发模式（零基础保护 / 提示词润色 / 新项目需求追问 / 效率优先或严格派发，写 .dsh/supervisor.config.json）。',
+        footerReadonly: '本面板基本只读；写操作仅限四个开关、派发模式与模型协作（零基础保护 / 提示词润色 / 新项目需求追问 / 模型协作 / 效率优先或严格派发，写 .dsh/supervisor.config.json）。',
         collapseShow: '展开说明',
         collapseHide: '收起说明',
         kickoff:
-          '你当项目主管，帮我做：<在这里写目标>。要求：先定完成定义与工作分解；能并行就开多个对话框，写范围互不重叠；完成后你亲自验收，并给我验证结果（命令 + 输出）。',
-        installCmd: 'bash {cwd}/setup/install-supervisor.sh /path/to/workspace --with-research',
-        rulesPath: '{cwd}/AGENTS.md',
+          '你当项目主管，帮我做：<在这里写目标>。要求：先定完成定义与工作分解；能并行就开多个对话框，写范围互不重叠；完成后你亲自验收，并给我验证结果（命令 + 输出）。\n\n'
+          + '规则文件（开工先读）：\n'
+          + '- 常驻规则：{cwd}/AGENTS.md\n'
+          + '- 详细流程与模板：{cwd}/.dsh/skills/project-supervisor/SKILL.md\n'
+          + '- 使用说明：{cwd}/主管手册.md',
+        bootstrap:
+          '请把「项目主管套件」一键装到当前工作区（cwd 即目标），不要改已有文件、不要 git commit/push。\n'
+          + '1) 下载套件（任选其一，失败换下一个）：\n'
+          + '   仓库路线：git clone --depth 1 https://github.com/Midnight-1991/dsh-project-supervisor.git /tmp/dsh-project-supervisor-kit && bash /tmp/dsh-project-supervisor-kit/kit/install-supervisor.sh . --with-research --with-setup\n'
+          + '   zip 路线（无 git）：从 https://github.com/Midnight-1991/dsh-project-supervisor/releases 下载 project-supervisor-kit-*.zip，解压后运行 bash <解压目录>/install-supervisor.sh . --with-research --with-setup\n'
+          + '   Windows：把上面脚本换成 node <目录>\\install-supervisor.mjs . --with-research --with-setup\n'
+          + '2) 验收并逐项告诉我：AGENTS.md 是否以「# 项目主管作业规则（本工作区）」开头；.dsh/skills/project-supervisor/SKILL.md 与 templates/ 五个模板；主管手册.md；research/README.md 与 research/DECISIONS.md；setup/ 下 sync-kit.sh、selftest.sh、verify-facts.sh；.dsh/supervisor-kit.json 的版本号与 withResearch/withSetup。\n'
+          + '3) 装完提醒我在同一目录「新建会话」让常驻规则生效；本会话先按 AGENTS.md 规则继续。\n'
+          + '4) 失败就原样贴出错误与退出码，不要擅自删文件重试。',
+        installCmd: 'bash {cwd}/setup/install-supervisor.sh /path/to/workspace --with-research --with-setup',
         noCwd: '<工作区路径>',
       };
 
@@ -158,7 +195,7 @@
         nav: 'Supervisor',
         title: 'Project Supervisor',
         subtitle: 'Central decisions · parallel dispatch · verified delivery',
-        versionTag: 'experimental plugin v0.5.1',
+        versionTag: 'experimental plugin v0.7.3',
         modeCardTitle: 'Supervisor mode',
         modeHint: 'Choose whether the supervisor writes itself or dispatches every write to a dialog. Saved immediately; applies to new tasks only.',
         modeEfficiency: 'Efficiency first',
@@ -168,6 +205,31 @@
         modeAria: 'Supervisor mode selector',
         modeSaved: 'Mode switched (written to .dsh/supervisor.config.json)',
         modeLocalSaved: 'Mode switched (saved in browser; re-select after a DSH restart)',
+        collabTitle: 'Model collaboration (off by default)',
+        collabHint: 'When on, the supervisor picks a model per task type for subagent dispatch only; the switch and mapping are written to .dsh/supervisor.config.json.',
+        collabOn: 'On',
+        collabOff: 'Off',
+        collabAria: 'Model collaboration switch',
+        collabModeAria: 'Model selection mode',
+        collabSaved: 'Model collaboration saved (written to .dsh/supervisor.config.json)',
+        collabLocalSaved: 'Model collaboration saved in browser (re-set after a DSH restart)',
+        collabAuto: 'AI auto-select',
+        collabAutoDesc: 'Pick per task type automatically: stronger model for planning/review, fast model for implementation/research/docs.',
+        collabManual: 'Manual per task',
+        collabManualDesc: 'Assign a model for each task type; unset ones use the DSH default.',
+        collabAssignAria: 'Task-type to model assignment',
+        collabTaskPlanning: 'Planning / architecture',
+        collabTaskImplement: 'Implementation',
+        collabTaskReview: 'Independent review',
+        collabTaskResearch: 'Research',
+        collabTaskDocs: 'Documentation',
+        collabTaskVerify: 'Testing / verification',
+        collabModelDefault: 'Default (unset)',
+        collabRouteHint: 'Routes come from list_subagent_models on this machine; changes save immediately.',
+        collabAutoRoutesAria: 'Auto-mode routing table',
+        collabAutoRoutesHint: 'Auto mode dispatches by this table; "Recommended default" picks by task difficulty. Models come from this machine\'s LLM routes.',
+        collabAutoDefault: 'Recommended default',
+        collabNote: 'Only subagent dispatch can pick models; team members (teammates) cannot.',
         projectTitle: 'Choose project',
         projectHint: 'Checks run against the workspace root of the most recent session; switch chips to inspect another workspace.',
         refresh: 'Re-check',
@@ -255,24 +317,36 @@
         copyKickoffDone: 'Kickoff prompt copied',
         copyInstall: 'Copy "install to another workspace" command',
         copyInstallDone: 'Install command copied',
-        copyRules: 'Copy rules file path',
-        copyRulesDone: 'Rules path copied',
+        copyBootstrap: 'Copy one-paste install prompt (new workspace)',
+        copyBootstrapDone: 'Install prompt copied',
         quickHelpShow: 'Why',
         quickHelpHide: 'Hide',
         quickHelpAria: 'Expand explanation: ',
-        quickKickoffWhy: 'What it does: puts a standard kickoff prompt on the clipboard. Paste it to the supervisor and it will define done, decompose the work, dispatch in parallel and verify the result instead of coding blindly.',
+        quickKickoffWhy: 'What it does: puts a standard kickoff prompt on the clipboard. It includes the goal placeholder, done/decompose/parallel/verify requirements, and the rules file paths (AGENTS.md, SKILL.md, user guide) the supervisor reads first.',
         quickInstallWhy: 'What it does: copies a command that installs the rules, skill, manual and research into another workspace. Run it from the unpacked kit to set up a new machine or share with a teammate.',
-        quickRulesWhy: 'What it does: copies the rule file paths (AGENTS.md and the project-level SKILL.md). Handy when quoting the rules in another session or opening the full text yourself.',
+        quickBootstrapWhy: 'What it does: copies a one-paste install prompt. Paste it into any new workspace session; the agent downloads the kit from GitHub, installs it into the current workspace and verifies it. Open a new session afterwards for the standing rules.',
         copyFailed: 'Copy failed; select the text manually',
         teamHint: 'Parallel conversations: open "Agent Team" in a conversation header to see members, the task board and messages.',
         footerRules: 'Rules live in AGENTS.md (standing) + .dsh/skills/project-supervisor/SKILL.md (detailed flow).',
-        footerReadonly: 'Read-only except the three switches and the dispatch mode (beginner safeguards, prompt polish, new-project interview, efficiency/strict); they write .dsh/supervisor.config.json.',
+        footerReadonly: 'Read-only except the four switches, dispatch mode and model collaboration (beginner safeguards, prompt polish, new-project interview, model collaboration, efficiency/strict); they write .dsh/supervisor.config.json.',
         collapseShow: 'Expand details',
         collapseHide: 'Collapse details',
         kickoff:
-          'Act as the project supervisor and build: <describe the goal here>. Define "done" and decompose the work first; open parallel conversations when independent, with disjoint write scopes; verify the result yourself and report evidence (commands + output).',
-        installCmd: 'bash {cwd}/setup/install-supervisor.sh /path/to/workspace --with-research',
-        rulesPath: '{cwd}/AGENTS.md',
+          'Act as the project supervisor and build: <describe the goal here>. Define "done" and decompose the work first; open parallel conversations when independent, with disjoint write scopes; verify the result yourself and report evidence (commands + output).\n\n'
+          + 'Rules files (read first at kickoff):\n'
+          + '- standing rules: {cwd}/AGENTS.md\n'
+          + '- detailed flow & templates: {cwd}/.dsh/skills/project-supervisor/SKILL.md\n'
+          + '- user guide: {cwd}/主管手册.md',
+        bootstrap:
+          'Install the project-supervisor kit into this workspace (cwd), then verify it. Do not modify existing files, do not git commit/push.\n'
+          + '1) Download the kit (try in order):\n'
+          + '   repo route: git clone --depth 1 https://github.com/Midnight-1991/dsh-project-supervisor.git /tmp/dsh-project-supervisor-kit && bash /tmp/dsh-project-supervisor-kit/kit/install-supervisor.sh . --with-research --with-setup\n'
+          + '   zip route (no git): download project-supervisor-kit-*.zip from https://github.com/Midnight-1991/dsh-project-supervisor/releases, then run bash <unzipped>/install-supervisor.sh . --with-research --with-setup\n'
+          + '   Windows: use node <dir>\\install-supervisor.mjs . --with-research --with-setup\n'
+          + '2) Verify and report: AGENTS.md starts with "# 项目主管作业规则（本工作区）」"; .dsh/skills/project-supervisor/SKILL.md + five templates; 主管手册.md; research/README.md + research/DECISIONS.md; setup/ has sync-kit.sh, selftest.sh, verify-facts.sh; version + withResearch/withSetup in .dsh/supervisor-kit.json.\n'
+          + '3) Remind me to open a NEW session in the same directory for the standing rules to load; continue this session per AGENTS.md.\n'
+          + '4) On failure, paste the exact error and exit code; do not delete files and retry blindly.',
+        installCmd: 'bash {cwd}/setup/install-supervisor.sh /path/to/workspace --with-research --with-setup',
         noCwd: '<workspace path>',
       };
 
@@ -341,21 +415,28 @@
   box-shadow: 0 0 0 1px var(--dsw-alias-border-l2, rgba(0,0,0,.1));
 }
 .psup-mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-.psup-mode-option {
+.psup-mode-option, .psup-collab-option {
   appearance: none; display: flex; flex-direction: column; gap: 6px; text-align: left;
   padding: 12px 14px; border-radius: 10px; border: none; cursor: pointer; font: inherit; color: inherit;
   background: var(--dsw-alias-bg-base, #fff);
   box-shadow: 0 0 0 1px var(--dsw-alias-border-l2, rgba(0,0,0,.08));
   transition: box-shadow .12s ease, background .12s ease;
 }
-.psup-mode-option:hover { box-shadow: 0 0 0 1px var(--dsw-alias-border-l1, rgba(0,0,0,.18)); }
-.psup-mode-option.is-active {
+.psup-mode-option:hover, .psup-collab-option:hover { box-shadow: 0 0 0 1px var(--dsw-alias-border-l1, rgba(0,0,0,.18)); }
+.psup-mode-option.is-active, .psup-collab-option.is-active {
   background: transparent;
   box-shadow: inset 0 0 0 1.5px var(--dsw-alias-label-primary, #1f2329);
 }
-.psup-mode-option:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #4d6bfe); outline-offset: 2px; }
+.psup-mode-option:focus-visible, .psup-collab-option:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #4d6bfe); outline-offset: 2px; }
 .psup-mode-name { font-size: 13px; font-weight: 600; }
-.psup-mode-option.is-active .psup-mode-name::after { content: ' ✓'; }
+.psup-mode-option.is-active .psup-mode-name::after, .psup-collab-option.is-active .psup-mode-name::after { content: ' ✓'; }
+.psup-model-table { display: grid; gap: 8px; margin-top: 12px; }
+.psup-model-row { display: grid; grid-template-columns: 1fr 230px; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 8px; background: var(--dsw-alias-bg-layer-2, rgba(127,127,127,.08)); }
+.psup-model-label { font-size: 13px; }
+.psup-model-row select { font: inherit; font-size: 13px; color: inherit; background: var(--dsw-alias-bg-base, transparent); border: 1px solid var(--dsw-alias-border-l1, rgba(127,127,127,.35)); border-radius: 6px; padding: 4px 6px; }
+.psup-model-note { margin-top: 8px; }
+.psup-note { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #646a73); }
+@media (max-width: 720px) { .psup-model-row { grid-template-columns: 1fr; } }
 .psup-mode-desc { font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #646a73); }
 @media (max-width: 720px) { .psup-mode-row { grid-template-columns: 1fr; } }
 .psup-muted { margin: 2px 0 12px; font-size: 12px; line-height: 1.6; color: var(--dsw-alias-label-secondary, #646a73); }
@@ -673,6 +754,34 @@
         );
       }
 
+      const MODEL_TASK_TYPES = ['planning', 'implement', 'review', 'research', 'docs', 'verify'];
+      const FALLBACK_MODEL_ROUTES = [
+        { value: 'deepseek-official/deepseek-flash', label: 'deepseek-flash' },
+        { value: 'deepseek-official/deepseek-v4-pro', label: 'deepseek-v4-pro' },
+      ];
+      const normalizeCollab = (value) => {
+        const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+        const rawAssignments =
+          raw.assignments && typeof raw.assignments === 'object' && !Array.isArray(raw.assignments)
+            ? raw.assignments
+            : {};
+        const assignments = {};
+        for (const task of MODEL_TASK_TYPES) {
+          const route = rawAssignments[task];
+          assignments[task] = typeof route === 'string' ? route : '';
+        }
+        const rawAutoRoutes =
+          raw.autoRoutes && typeof raw.autoRoutes === 'object' && !Array.isArray(raw.autoRoutes)
+            ? raw.autoRoutes
+            : {};
+        const autoRoutes = {};
+        for (const task of MODEL_TASK_TYPES) {
+          const route = rawAutoRoutes[task];
+          autoRoutes[task] = typeof route === 'string' ? route : '';
+        }
+        return { enabled: raw.enabled === true, mode: raw.mode === 'manual' ? 'manual' : 'auto', assignments, autoRoutes };
+      };
+
       function SupervisorPage(props) {
         const t = useTr(props);
         const useSessions = props ? props.useSessions : undefined;
@@ -688,6 +797,11 @@
         const [toast, setToast] = useState('');
         const [openHelp, setOpenHelp] = useState(null);
         const [modes, setModes] = useState({ beginnerGuard: true, promptPolish: true, requirementInterview: true, dispatchMode: 'efficiency', host: true, loaded: false });
+        const [modelCollab, setModelCollab] = useState(() => normalizeCollab(null));
+        const [modelRoutes, setModelRoutes] = useState(() => []);
+        const routeOptions = [{ value: '', labelKey: 'collabModelDefault' }].concat(
+          modelRoutes.length > 0 ? modelRoutes : FALLBACK_MODEL_ROUTES,
+        );
 
         // 三块卡片说明区的折叠偏好：默认展开；用户点的选择存 localStorage，下次打开页面沿用。
         const COLLAPSE_FIELDS = ['beginnerGuard', 'promptPolish', 'requirementInterview'];
@@ -835,6 +949,13 @@
                 return null;
               }
             };
+            const readLocalCollab = () => {
+              try {
+                return JSON.parse(readLocal('modelCollaboration') || 'null');
+              } catch (error) {
+                return null;
+              }
+            };
             if (server) {
               setModes({
                 beginnerGuard: server.beginnerGuard !== false,
@@ -844,8 +965,14 @@
                 host: true,
                 loaded: true,
               });
+              setModelCollab(
+                normalizeCollab(
+                  server.modelCollaboration !== undefined ? server.modelCollaboration : readLocalCollab(),
+                ),
+              );
               return;
             }
+            setModelCollab(normalizeCollab(readLocalCollab()));
             setModes({
               beginnerGuard: readLocal('beginnerGuard') !== 'false',
               promptPolish: readLocal('promptPolish') !== 'false',
@@ -859,6 +986,30 @@
             alive = false;
           };
         }, [cwd]);
+
+        // Load the live model routes from the host half (falls back to the
+        // built-in route list when the host is older / not restarted yet).
+        useEffect(() => {
+          let alive = true;
+          (async () => {
+            try {
+              const response = await fetch('/plugins/dsh-project-supervisor/models', { credentials: 'include' });
+              const contentType = response.headers.get('content-type') || '';
+              if (!response.ok || !contentType.includes('application/json')) return;
+              const data = await response.json();
+              if (!alive || !data || !data.ok || !Array.isArray(data.routes)) return;
+              const routes = data.routes
+                .filter((route) => route && typeof route.provider === 'string' && typeof route.model === 'string')
+                .map((route) => ({ value: route.provider + '/' + route.model, label: route.name || route.model }));
+              if (routes.length > 0) setModelRoutes(routes);
+            } catch (error) {
+              // keep the static fallback
+            }
+          })();
+          return () => {
+            alive = false;
+          };
+        }, []);
 
         const toggleMode = async (field) => {
           if (!cwd) return;
@@ -931,6 +1082,46 @@
           showToast(saved ? 'modeSaved' : 'modeLocalSaved');
         };
 
+        const saveModelCollab = async (patch) => {
+          if (!cwd) return;
+          const next = normalizeCollab({
+            ...modelCollab,
+            ...patch,
+            assignments: { ...modelCollab.assignments, ...(patch.assignments || {}) },
+            autoRoutes: { ...modelCollab.autoRoutes, ...(patch.autoRoutes || {}) },
+          });
+          setModelCollab(next);
+          let saved = false;
+          try {
+            const response = await fetch('/plugins/dsh-project-supervisor/config', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ cwd, modelCollaboration: patch }),
+            });
+            const contentType = response.headers.get('content-type') || '';
+            if (response.ok && contentType.includes('application/json')) {
+              const data = await response.json();
+              if (data && data.ok && data.modelCollaboration) {
+                setModelCollab(normalizeCollab(data.modelCollaboration));
+                saved = true;
+              }
+            }
+          } catch (error) {
+            saved = false;
+          }
+          if (!saved) {
+            try {
+              window.localStorage.setItem('psup.modelCollaboration:' + cwd, JSON.stringify(next));
+            } catch (error) {
+              // ignore private-mode storage failures
+            }
+            showToast('collabLocalSaved');
+          } else {
+            showToast('collabSaved');
+          }
+        };
+
         return h(
           'div',
           { className: 'psup-page' },
@@ -986,6 +1177,132 @@
                   ),
                 ),
               ),
+            ),
+
+            h(
+              'section',
+              { className: 'psup-card' },
+              h(
+                'div',
+                { className: 'psup-card-head' },
+                h('h2', { className: 'psup-card-title' }, t('collabTitle')),
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    role: 'switch',
+                    'data-field': 'modelCollaboration',
+                    'aria-checked': modelCollab.enabled ? 'true' : 'false',
+                    'aria-label': t('collabAria'),
+                    className: 'psup-switch' + (modelCollab.enabled ? ' is-on' : ''),
+                    onClick: () => saveModelCollab({ enabled: !modelCollab.enabled }),
+                  },
+                  h('span', { className: 'psup-switch-track' }, h('span', { className: 'psup-switch-knob' })),
+                  h('span', { className: 'psup-switch-label' }, modelCollab.enabled ? t('collabOn') : t('collabOff')),
+                ),
+              ),
+              h('p', { className: 'psup-muted' }, t('collabHint')),
+              modelCollab.enabled
+                ? h(
+                    'div',
+                    { className: 'psup-mode-row', role: 'radiogroup', 'aria-label': t('collabModeAria') },
+                    [
+                      { value: 'auto', nameKey: 'collabAuto', descKey: 'collabAutoDesc' },
+                      { value: 'manual', nameKey: 'collabManual', descKey: 'collabManualDesc' },
+                    ].map((option) =>
+                      h(
+                        'button',
+                        {
+                          key: option.value,
+                          type: 'button',
+                          role: 'radio',
+                          'aria-checked': modelCollab.mode === option.value ? 'true' : 'false',
+                          className: 'psup-collab-option' + (modelCollab.mode === option.value ? ' is-active' : ''),
+                          onClick: () => saveModelCollab({ mode: option.value }),
+                        },
+                        h('span', { className: 'psup-mode-name' }, t(option.nameKey)),
+                        h('span', { className: 'psup-mode-desc' }, t(option.descKey)),
+                      ),
+                    ),
+                  )
+                : null,
+              modelCollab.enabled && modelCollab.mode === 'auto'
+                ? h(
+                    'div',
+                    { className: 'psup-model-table', 'aria-label': t('collabAutoRoutesAria') },
+                    [
+                      { key: 'planning', labelKey: 'collabTaskPlanning' },
+                      { key: 'implement', labelKey: 'collabTaskImplement' },
+                      { key: 'review', labelKey: 'collabTaskReview' },
+                      { key: 'research', labelKey: 'collabTaskResearch' },
+                      { key: 'docs', labelKey: 'collabTaskDocs' },
+                      { key: 'verify', labelKey: 'collabTaskVerify' },
+                    ].map((row) =>
+                      h(
+                        'label',
+                        { key: row.key, className: 'psup-model-row' },
+                        h('span', { className: 'psup-model-label' }, t(row.labelKey)),
+                        h(
+                          'select',
+                          {
+                            value: modelCollab.autoRoutes[row.key] || '',
+                            onChange: (event) =>
+                              saveModelCollab({ autoRoutes: { [row.key]: event.target.value } }),
+                          },
+                          routeOptions.map((route) =>
+                            h(
+                              'option',
+                              { key: route.value || 'default', value: route.value },
+                              route.label || t(route.labelKey || 'collabAutoDefault'),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
+              modelCollab.enabled && modelCollab.mode === 'auto'
+                ? h('p', { className: 'psup-muted psup-model-note' }, t('collabAutoRoutesHint'))
+                : null,
+              modelCollab.enabled && modelCollab.mode === 'manual'
+                ? h(
+                    'div',
+                    { className: 'psup-model-table', 'aria-label': t('collabAssignAria') },
+                    [
+                      { key: 'planning', labelKey: 'collabTaskPlanning' },
+                      { key: 'implement', labelKey: 'collabTaskImplement' },
+                      { key: 'review', labelKey: 'collabTaskReview' },
+                      { key: 'research', labelKey: 'collabTaskResearch' },
+                      { key: 'docs', labelKey: 'collabTaskDocs' },
+                      { key: 'verify', labelKey: 'collabTaskVerify' },
+                    ].map((row) =>
+                      h(
+                        'label',
+                        { key: row.key, className: 'psup-model-row' },
+                        h('span', { className: 'psup-model-label' }, t(row.labelKey)),
+                        h(
+                          'select',
+                          {
+                            value: modelCollab.assignments[row.key] || '',
+                            onChange: (event) =>
+                              saveModelCollab({ assignments: { [row.key]: event.target.value } }),
+                          },
+                          routeOptions.map((route) =>
+                            h(
+                              'option',
+                              { key: route.value || 'default', value: route.value },
+                              route.label || t(route.labelKey),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
+              modelCollab.enabled && modelCollab.mode === 'manual'
+                ? h('p', { className: 'psup-muted psup-model-note' }, t('collabRouteHint'))
+                : null,
+              h('p', { className: 'psup-note' }, t('collabNote')),
             ),
 
             h(
@@ -1108,6 +1425,7 @@
                   {
                     type: 'button',
                     role: 'switch',
+                    'data-field': 'beginnerGuard',
                     'aria-checked': modes.beginnerGuard ? 'true' : 'false',
                     'aria-label': t('guardAria'),
                     title: t('beginnerHint'),
@@ -1154,6 +1472,7 @@
                   {
                     type: 'button',
                     role: 'switch',
+                    'data-field': 'promptPolish',
                     'aria-checked': modes.promptPolish ? 'true' : 'false',
                     'aria-label': t('polishAria'),
                     title: t('polishHint'),
@@ -1200,6 +1519,7 @@
                   {
                     type: 'button',
                     role: 'switch',
+                    'data-field': 'requirementInterview',
                     'aria-checked': modes.requirementInterview ? 'true' : 'false',
                     'aria-label': t('interviewAria'),
                     title: t('interviewHint'),
@@ -1246,20 +1566,20 @@
                     id: 'kickoff',
                     label: t('copyKickoff'),
                     primary: true,
-                    onClick: () => copy(t('kickoff'), 'copyKickoffDone', 'copyFailed'),
+                    onClick: () => copy(fillCopy(t('kickoff'), cwd || t('noCwd')), 'copyKickoffDone', 'copyFailed'),
                     help: t('quickKickoffWhy'),
+                  },
+                  {
+                    id: 'bootstrap',
+                    label: t('copyBootstrap'),
+                    onClick: () => copy(t('bootstrap'), 'copyBootstrapDone', 'copyFailed'),
+                    help: t('quickBootstrapWhy'),
                   },
                   {
                     id: 'install',
                     label: t('copyInstall'),
                     onClick: () => copy(fillCopy(t('installCmd'), cwd || t('noCwd')), 'copyInstallDone', 'copyFailed'),
                     help: t('quickInstallWhy'),
-                  },
-                  {
-                    id: 'rules',
-                    label: t('copyRules'),
-                    onClick: () => copy(fillCopy(t('rulesPath'), cwd || t('noCwd')), 'copyRulesDone', 'copyFailed'),
-                    help: t('quickRulesWhy'),
                   },
                 ].map((action) => {
                   const open = openHelp === action.id;

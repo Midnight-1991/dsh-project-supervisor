@@ -2,6 +2,73 @@
 
 格式：`## [版本] 日期` + 变更分类。版本号与同目录 `VERSION` 一致（源工作区为 `setup/VERSION`）。
 
+## [1.11.2] 2026-10-31
+
+### 变更
+- 发布前独立审查修复（报告 14 号不随包）：公开文档清掉内部评审引用与事故报告条目；`build-dist`/`build-public-repo` 排除 `research/1[0-9]-*` 并新增「公开 research 恰 7 文件 + 文档无内部评审引用」硬断言；安装记录 `withResearch/withSetup` 统一布尔；公开快照截图补齐 `panel-model-collab.jpg` 并在 e2e 截图前隐藏第三方 fixed 浮层；client 删除死 i18n 键（`quickRulesWhy`/`rulesPath`）；插件 0.7.3。
+- DECISIONS 补 D55（审查结论与发布记录）。
+
+### 验证
+- selftest 20/20、verify-facts 离线 9/9、sync 40/40；dist/public 重建后排除断言通过；e2e 复跑通过。
+
+## [1.11.1] 2026-10-31
+
+### 变更
+- 面板快捷动作从 4 个精简为 3 个：删除「复制规则文件路径」；「复制开工口令」文本末尾并入规则文件路径（`AGENTS.md`、`.dsh/skills/project-supervisor/SKILL.md`、`主管手册.md`），口令含 `{cwd}` 占位自动填充。
+- 面板 footer 文案改为「四个开关、派发模式与模型协作」；插件 0.7.2。
+
+### 验证
+- client smoke 145 keys、`node --check` 通过；真实 GUI e2e PASS（3 个折叠说明、无 console error）；截图更新。
+
+## [1.11.0] 2026-10-31
+
+### 新增
+- 安装器新增 `--with-setup`：除常驻规则/技能/手册外，把工程化脚本与文档（sync-kit / selftest / verify-facts / build-dist / build-public-repo / 一键安装口令 / 安装说明 / 朋友指南 / VERSION / CHANGELOG 等）装进目标工作区的 `setup/`，安装记录增加 `withResearch` / `withSetup` 字段。
+- 一键安装口令默认改用 `--with-research --with-setup`，把 `research/`（调研 + DECISIONS 模板）与 `setup/` 一并装好；验收清单同步；不想要可去掉这两个参数。
+- 公开仓库 `kit/` 同步携带上述脚本与两个团队模板，zip 路线与仓库路线装出内容一致。
+- 插件 0.7.1：面板「复制一键安装口令」与「复制安装到其他工作区命令」同步带上 `--with-research --with-setup`，验收项增加 `research/` 与 `setup/` 检查。
+
+### 验证
+- selftest 新增第 20 项：`--with-research --with-setup` 后 `research/` 与 `setup/` 文件齐全、重复安装幂等；selftest 20/20。
+
+## [1.10.0] 2026-10-31
+
+### 新增
+- 模型下拉改为**动态读取**本机 LLM 路由：host 新增 `GET /plugins/dsh-project-supervisor/models`（枚举 provider/model，60s 缓存、同源校验、405），client 读不到时回退内置两档。
+- 自动模式新增**可编辑路由表** `modelCollaboration.autoRoutes`（6 类任务各选 `provider/model`，空=推荐默认）；自动/手动两套表独立持久化，部分更新互不覆盖。
+
+### 升级
+- 插件 0.7.0、套件 1.10.0；host-smoke 26 项、e2e 覆盖自动路由表选择并在刷新后保持；host 半侧需重启 `dsh web` 生效。
+
+## [1.9.0] 2026-10-31
+
+### 新增
+- 主管面板「模型协作」卡（默认关）：总开关 + 两种模式（AI 自动选择 / 用户手动选择）+ 手动模式下 6 类任务（规划/架构、实现编码、独立评审、调研检索、文档整理、测试验证）→ 模型选择区；状态写 `.dsh/supervisor.config.json` 的 `modelCollaboration`。
+- 插件 0.6.0：host 配置组校验（enabled/mode/assignments）、GET/POST 支持、host-smoke 21 项、e2e 覆盖开关/模式/6 行选择/刷新保持。
+- 规则：AGENTS「模型协作（默认关，面板可开）」段 + SKILL 章节（auto/manual 路由、仅 subagent、记录与回落）。
+
+### 说明
+- 仅对 subagent 生效（可跨模型）；`spawn_teammate` 不能选模型；模型列表按本机 `list_subagent_models` 静态内置。
+
+## [1.8.6] 2026-10-31
+
+### 团队复用（A–F）+ 名额扩容
+
+- 规则：AGENTS 新增「团队复用（优先复用人）」段；SKILL 新增「团队复用与派发」章（派发顺序、角色卡、warm-start、陈旧上下文、teammate vs subagent、度量与边界）。
+- 模板：新增第 5 个技能模板 `templates/wake-brief.md`；新增 `setup/team-roster.template.md`、`setup/team-ledger.template.md`，安装器默认播种为 `.dsh/team-roster.md`/`.dsh/team-ledger.md`（只补缺失、从不覆盖）。
+- 机制：本机 profile `cordis.patch.yml` 覆盖 `agent-team.maxMembers=16`（原组合包 8；备份 `.bak.<时间戳>`，重启 `dsh web` 后生效）；SKILL 体量预算从 32000B 提升到 35000B。
+- 自测：installer 预检与安装断言加入名册/账本；selftest 模板计数 4→5；build-dist 必需文件加入 wake-brief 与两个模板；verify-facts 预算 35000。
+- 验证：selftest/verify/build 回归结果见交付说明。
+
+## [1.8.5] 2026-10-30
+
+### 一键安装口令（复制到新会话即装）
+
+- 新增 `setup/一键安装口令.md`：一段可复制的口令，粘贴到任意新工作区的新会话后，由 agent 使用公开仓库/Release 的安装器把套件装进当前工作区并逐项验收（仓库路线 / zip 路线 / Windows 三种命令，失败换路线、原样报错）。
+- 主管面板快捷动作新增「复制一键安装口令（新工作区）」（插件 0.5.2）：一键把上述口令放进剪贴板；说明文案写明“装完新建会话生效”。
+- 分发：`build-dist.sh` 必需文件清单加入 `一键安装口令.md`；插件 README / 安装说明 / 主管手册同步；口令安全边界=默认只补缺失、不覆盖已有文件、不自动 git commit/push。
+- 验证：client smoke 122 keys、e2e 快捷动作 4 个折叠开关、selftest 18/18、verify-facts 9/9（详见下次回归记录）。
+
 ## [1.8.4] 2026-10-25
 
 ### 公开仓库审查修复（对外文档 / 自测 / 分发一致性）
@@ -93,7 +160,7 @@
 
 ## [1.6.0]
 
-- **评审修复（research/08）**：触发判据排除套件文件（避免把装过套件的空目录判成旧项目）、统一最多 3 批；术语统一「新项目需求追问」、停止条件补「连续两批用默认」、项目根 README/DECISIONS 与 research/DECISIONS 区分、手册 smoke 13 项三字段、重启后需重新点开关的文案、e2e 增加 console error=0 断言（过滤预期内 config 端点 404/405）。
+- **评审修复（内部独立评审）**：触发判据排除套件文件（避免把装过套件的空目录判成旧项目）、统一最多 3 批；术语统一「新项目需求追问」、停止条件补「连续两批用默认」、项目根 README/DECISIONS 与 research/DECISIONS 区分、手册 smoke 13 项三字段、重启后需重新点开关的文案、e2e 增加 console error=0 断言（过滤预期内 config 端点 404/405）。
 2026-10-24
 
 - **新功能「新项目需求追问」**（默认开，仅新项目当轮及其追问轮生效）：用户提出新项目的那轮，主管先追问需求（每批 3–5 个、每题给默认答案、最多 3 批），能定 MVP/验收/主要约束或用户说「够了/直接做」即停；答案落盘 README + DECISIONS 再开工。
@@ -157,7 +224,7 @@
 - `SKILL.md` 新增同名章节：触发信号、18 类新手常见错误 → 主管动作 → 验收证据表、新项目开工五件套（含 git 身份、环境检查、备份）、架构选型默认策略（含托管平台）、每步节奏与验收三查、对零基础用户的沟通方式；第一步「立项」加入「先读回 README/DECISIONS/git log」。
 - `主管手册.md` 新增「给零基础用户：主管会自动帮你避开的坑」：常见错误对照表（含备份/成本/部署）、开工五件事、用户最少只需做的四件事。
 - `setup/DECISIONS.template.md`：开工检查清单更新，并新增「完成定义」「验收标准（3 条）」可填写小节。
-- 独立只读评审 `research/06-beginner-guard-review.md`：20 类错误覆盖表 + 3 项 blocking（密钥落地路径、文档只写不读、全局技能/dist 未更新）已全部修复，10 条 advisory 按批采纳；VERSION 1.1.0。
+- 独立只读内部评审（记录不随包分发）：20 类错误覆盖表 + 3 项 blocking（密钥落地路径、文档只写不读、全局技能/dist 未更新）已全部修复，10 条 advisory 按批采纳；VERSION 1.1.0。
 
 ## [1.0.0] 2026-10-24
 

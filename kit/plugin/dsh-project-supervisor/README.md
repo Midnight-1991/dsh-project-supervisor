@@ -1,6 +1,6 @@
 # dsh-project-supervisor（项目主管面板 · DSH 插件实验版）
 
-把「项目主管」体系搬到 DeepSeek Harness 的 Web GUI 里：侧栏多一个 **主管** 入口，点开是一块面板（除「零基础保护」「提示词润色」「新项目需求追问」三个开关外只读），用来确认当前工作区是否具备主管开工所需的工程底线，并给出主管工作流、零基础保护清单与一键复制的开工口令。
+把「项目主管」体系搬到 DeepSeek Harness 的 Web GUI 里：侧栏多一个 **主管** 入口，点开是一块面板（除「零基础保护」「提示词润色」「新项目需求追问」「模型协作」四个开关、工作模式与模型协作模式选择外只读），用来确认当前工作区是否具备主管开工所需的工程底线，并给出主管工作流、零基础保护清单与一键复制的开工口令。
 
 ![主管面板：工程底线自检](screenshots/panel.jpg)
 
@@ -10,7 +10,7 @@
 
 > 截图来自 2026-10-24 的 headless Chrome e2e（暗色主题、真实 DSH Web 页面，点击侧栏「主管」后截取）。
 
-> 规则本身仍在 `AGENTS.md` 和 `.dsh/skills/project-supervisor/SKILL.md`（文件载体）；本插件只负责看板与入口。仅有的写操作是「零基础保护」「提示词润色」「新项目需求追问」三个开关（写 `<工作区>/.dsh/supervisor.config.json`），不替代对话里的主管。
+> 规则本身仍在 `AGENTS.md` 和 `.dsh/skills/project-supervisor/SKILL.md`（文件载体）；本插件只负责看板与入口。仅有的写操作是四个开关（零基础保护、提示词润色、新项目需求追问、模型协作）与工作模式/模型协作模式选择（写 `<工作区>/.dsh/supervisor.config.json`），不替代对话里的主管。
 
 ## 面板里有什么
 
@@ -22,7 +22,7 @@
 | 主管怎么工作 | 给目标 → 拆解并行 → 验收产物 → 收尾留痕，四步卡片 |
 | 零基础保护 | 安全网 / 先读回 / MVP / 架构默认 / 密钥 / 文档即记忆，六条；卡片右上角滑块可关闭（关闭后不再主动引导，安全底线保留） |
 | 提示词润色 | 读需求 / 找缺口 / 补全为专业提示词 / 一行要点后立即执行，四步；卡片右上角滑块可关闭（关闭后直接按原话执行） |
-| 快捷动作 | 复制开工口令、复制「安装到其他工作区」命令、复制规则文件路径（复制成功有 toast）；每个动作右侧「说明」可展开/折叠作用与使用时机 |
+| 快捷动作 | 复制开工口令（口令内含规则文件路径）、复制一键安装口令（新工作区）、复制「安装到其他工作区」命令（复制成功有 toast）；每个动作右侧「说明」可展开/折叠作用与使用时机 |
 | 折叠说明 | 三个开关卡片的简介/清单可点标题左侧箭头折叠（默认展开）；折叠选择存在浏览器 localStorage，下次打开面板沿用 |
 | 页脚 | 规则载体说明、并行对话框入口提示（会话页头「智能体团队」） |
 
@@ -58,7 +58,7 @@ node install-plugin.mjs --copy            # 强制复制（默认 Windows 用 ju
 
 然后刷新 DSH 页面（或重启 `dsh web`）。侧栏出现「主管」入口即成功。
 
-## 面板开关（零基础保护 / 提示词润色 / 新项目需求追问）
+## 面板开关（零基础保护 / 提示词润色 / 新项目需求追问 / 模型协作）
 
 ![面板下半部分：三张开关卡片](screenshots/panel-bottom.jpg)
 
@@ -95,7 +95,7 @@ node install-plugin.mjs --copy            # 强制复制（默认 Windows 用 ju
 ## 依赖与兼容性
 
 - 需要 `dsh` 0.2.0-rc.2 的 **Web** profile（客户端插件的 `main` / `sidebar.panellist` slot、`workspaceFiles` remote 均来自该版本）。
-- host 半侧 `index.js` 只注册一个配置 endpoint（GET/POST 三个开关字段，见上文），无其他副作用；离线 smoke 可验证。
+- host 半侧 `index.js` 只注册一个配置 endpoint（GET/POST 五个配置字段（含 modelCollaboration 组），见上文），无其他副作用；离线 smoke 可验证。
 - 数据来源为 `workspaceFiles` remote 的 `stat`：只判断文件/目录是否存在，**不读取内容**。
 - 没有 `workspaceFiles` 服务时面板会降级为静态内容（规则卡与快捷动作仍可用）。
 
@@ -120,6 +120,23 @@ node install-plugin.mjs --copy            # 强制复制（默认 Windows 用 ju
 cd project-supervisor-kit-<日期>/plugin/dsh-project-supervisor
 bash install-plugin.sh            # 或先 bash install-plugin.sh --dry-run 看计划
 ```
+
+## 模型协作（默认关，面板可开）
+
+面板第二块「模型协作」：默认关；打开后二选一——「AI 自动选择」（默认，展开 6 行可编辑「自动路由表」，逐任务选模型或留「推荐默认」）或「用户手动选择」（6 行任务类型→模型指派）。状态写 `<工作区>/.dsh/supervisor.config.json` 的 `modelCollaboration`（`autoRoutes` / `assignments`）。
+
+![模型协作：手动模式下 6 类任务各选模型](screenshots/panel-model-collab.jpg)
+
+- 仅 `subagent` 支持跨模型（`provider`/`model` 成对）；`spawn_teammate` 不能选模型。
+- 模型下拉由 host 端 `/plugins/dsh-project-supervisor/models` 从本机 LLM 服务动态枚举（读不到时回退内置 deepseek-flash / deepseek-v4-pro）；换机器/换 provider 后重选。
+
+## 一键安装口令（给任意新工作区）
+
+面板「快捷动作」新增「复制一键安装口令（新工作区）」：复制后粘贴到任意新工作区的新会话，agent 会从 GitHub 下载套件、装进当前工作区并逐项验收；装完在同一目录新建会话让常驻规则生效。
+
+口令全文与出处见套件 `一键安装口令.md`（也随分享包分发）；口令默认带 `--with-research --with-setup`（把 `research/` 调研资料与 `setup/` 工程化脚本一起装进目标工作区），不需要就在命令里去掉这两个参数；适用于换电脑、朋友第一次用、给已有项目补装主管规则。
+
+安装器幂等：默认只补缺失文件、不覆盖已有文件；验收清单与版本记录在目标工作区 `.dsh/supervisor-kit.json`。
 
 ## 开发与自测
 
@@ -149,9 +166,9 @@ node scripts/e2e-screenshot.mjs "http://127.0.0.1:3080/?token=<token>" /tmp/shot
 - **没验证的**：真机 Windows 硬件与 DSH 进程（本机是 macOS）。朋友请按《朋友测试指南》第 8 节做一次人工冒烟。
 - **恢复**：若 DSH 起不来，`node install-plugin.mjs --uninstall`（非默认 profile 加 `--profile <目录>`）后重启；仍不行就删 profile `package.json` 里 `dsh-project-supervisor` 的两处条目。
 
-## 限制（v0.5.1）
+## 限制（v0.7.3）
 
-- 面板除三个开关与一个工作模式选择外只读：不会替你执行 git init、写 README、开对话框；这些动作仍由对话里的主管完成。
+- 面板除四个开关、工作模式与模型协作选择外只读：不会替你执行 git init、写 README、开对话框；这些动作仍由对话里的主管完成。
 - 严格派发模式完全依赖 Agent Teams 可创建对话框：成员上限已满或会话未启用 Team 工具时会明确报阻塞，不会假装派发。
 - 项目选择基于会话记录的 `cwd`：没有会话记录的工作区不会出现（先在 DSH 打开它并新建会话）。
 - 自检只判存在性，不校验内容质量；`.dsh/skills` 探测的是项目级技能目录，全局技能不在此列。

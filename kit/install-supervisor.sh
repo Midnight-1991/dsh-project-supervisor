@@ -5,6 +5,7 @@
 #   bash install-supervisor.sh /path/to/workspace                 # 建到指定工作区
 #   bash install-supervisor.sh .                                  # 建到当前目录
 #   bash install-supervisor.sh /path/to/ws --with-research        # 同时带上调研资料 + DECISIONS 模板
+#   bash install-supervisor.sh /path/to/ws --with-setup          # 同时把工程化脚本放进 <ws>/setup/（同步/自检/打包/事实核验）
 #   bash install-supervisor.sh /path/to/ws --global-skill         # 另装全局技能（所有工作区可用）
 #   bash install-supervisor.sh /path/to/ws --force                # 覆盖升级（旧文件先备份为 *.bak.<时间戳>）
 #   bash install-supervisor.sh /path/to/ws --dry-run              # 只预检 + 输出计划，不写任何文件
@@ -25,6 +26,7 @@ set -euo pipefail
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GLOBAL_SKILL=0
 WITH_RESEARCH=0
+WITH_SETUP=0
 FORCE=0
 DRY_RUN=0
 TARGET=""
@@ -36,6 +38,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --global-skill) GLOBAL_SKILL=1 ;;
     --with-research) WITH_RESEARCH=1 ;;
+    --with-setup) WITH_SETUP=1 ;;
     --force) FORCE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --dsh-home)
@@ -129,9 +132,11 @@ need_file() { [ -s "$KIT_DIR/$1" ] || MISSING+=("$1"); }
 need_file AGENTS.supervisor.md
 need_file 主管手册.md
 need_file DECISIONS.template.md
+need_file team-roster.template.md
+need_file team-ledger.template.md
 need_file VERSION
 need_file skill/SKILL.md
-for tpl in plan.md task-brief.md ledger.md review-gate.md; do
+for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
   need_file "skill/templates/$tpl"
 done
 need_file skill-improving-prompts/SKILL.md
@@ -143,6 +148,11 @@ if [ -d "$KIT_DIR/patches" ]; then
 fi
 if [ "$WITH_RESEARCH" -eq 1 ] && [ "$(count_md "$KIT_DIR/research")" -eq 0 ]; then
   MISSING+=("research/*.md（--with-research）")
+fi
+if [ "$WITH_SETUP" -eq 1 ]; then
+  for f in install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh 一键安装口令.md 安装说明.md 朋友测试指南.md team-roster.template.md team-ledger.template.md CHANGELOG.md; do
+    need_file "$f"
+  done
 fi
 KIT_VERSION=""
 if [ -f "$KIT_DIR/VERSION" ]; then
@@ -267,9 +277,18 @@ EOF
   fi
 }
 
-# 2) project-supervisor 技能目录（SKILL.md + templates/ 四个模板）
+# 2) project-supervisor 技能目录（SKILL.md + templates/ 五个模板（含 wake-brief））
 sync_tree "$KIT_DIR/skill" "$TARGET/.dsh/skills/project-supervisor" \
   ".dsh/skills/project-supervisor/" "$TARGET"
+
+# 2.4) 团队名册/账本模板（只补缺失，从不覆盖用户已有文件）
+seed_if_missing() { # $1=源文件 $2=目标文件 $3=标签
+  if [ -e "$2" ]; then log "$3 已存在，跳过（不覆盖）"; return 0; fi
+  copy_to "$1" "$2" || return 1
+  log "写入 $3 → $2"
+}
+seed_if_missing "$KIT_DIR/team-roster.template.md" "$TARGET/.dsh/team-roster.md" ".dsh/team-roster.md"
+seed_if_missing "$KIT_DIR/team-ledger.template.md" "$TARGET/.dsh/team-ledger.md" ".dsh/team-ledger.md"
 
 # 2.5) improving-prompts 技能目录（SKILL.md + LICENSE + references/ + templates/）
 sync_tree "$KIT_DIR/skill-improving-prompts" "$TARGET/.dsh/skills/improving-prompts" \
@@ -324,6 +343,32 @@ EOF
   fi
 fi
 
+# ---- 4.6) 可选：工程化脚本放进 <ws>/setup/（默认只补缺失；--force 才覆盖） --
+if [ "$WITH_SETUP" -eq 1 ]; then
+  SETUP_DEST="$TARGET/setup"
+  SETUP_FILES=(install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh 一键安装口令.md 安装说明.md 朋友测试指南.md AGENTS.supervisor.md 主管手册.md DECISIONS.template.md team-roster.template.md team-ledger.template.md VERSION CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md)
+  SETUP_WRITTEN=0
+  SETUP_OVERWRITTEN=0
+  SETUP_SKIPPED=0
+  for rel in "${SETUP_FILES[@]}"; do
+    src="$KIT_DIR/$rel"
+    dst="$SETUP_DEST/$rel"
+    if [ ! -e "$dst" ]; then
+      copy_to "$src" "$dst"
+      SETUP_WRITTEN=$((SETUP_WRITTEN + 1))
+      CHANGED=$((CHANGED + 1))
+    elif [ "$FORCE" -eq 1 ]; then
+      backup_file "$dst"
+      copy_to "$src" "$dst"
+      SETUP_OVERWRITTEN=$((SETUP_OVERWRITTEN + 1))
+      CHANGED=$((CHANGED + 1))
+    else
+      SETUP_SKIPPED=$((SETUP_SKIPPED + 1))
+    fi
+  done
+  log "setup/（工程化脚本：新增 ${SETUP_WRITTEN}，覆盖 ${SETUP_OVERWRITTEN}，跳过 ${SETUP_SKIPPED} 个文件）→ $SETUP_DEST"
+fi
+
 # ---- 4.5) 可选：权限补丁工具（逐文件处理） ---------------------------------
 if [ -d "$KIT_DIR/patches" ]; then
   sync_tree "$KIT_DIR/patches" "$TARGET/patches" "patches/" ""
@@ -354,7 +399,11 @@ else
     printf '  "name": "project-supervisor-kit",\n'
     printf '  "version": "%s",\n' "$KIT_VERSION"
     printf '  "installedAt": "%s",\n' "$INSTALLED_AT"
-    printf '  "installer": "install-supervisor.sh"\n'
+    printf '  "installer": "install-supervisor.sh",\n'
+    if [ "$WITH_RESEARCH" = "1" ]; then RESEARCH_JSON=true; else RESEARCH_JSON=false; fi
+    if [ "$WITH_SETUP" = "1" ]; then SETUP_JSON=true; else SETUP_JSON=false; fi
+    printf '  "withResearch": %s,\n' "$RESEARCH_JSON"
+    printf '  "withSetup": %s\n' "$SETUP_JSON"
     printf '}\n'
   } > "$RECORD" || die "写入版本记录失败: $RECORD"
   log "写入 .dsh/supervisor-kit.json（v${KIT_VERSION}）→ $RECORD"

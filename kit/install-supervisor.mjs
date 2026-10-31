@@ -5,6 +5,7 @@
  * 用法（Node >= 18；不需要 python）：
  *   node install-supervisor.mjs <workspace>                    # AGENTS + 技能 + 手册 + patches
  *   node install-supervisor.mjs <workspace> --with-research    # 另装调研资料 + DECISIONS 模板
+ *   node install-supervisor.mjs <workspace> --with-setup       # 另把工程化脚本放进 <ws>/setup/
  *   node install-supervisor.mjs <workspace> --global-skill     # 另装全局技能（所有工作区可用）
  *   node install-supervisor.mjs <workspace> --force            # 覆盖升级（覆盖前旧文件备份为 *.bak.<时间戳>）
  *   node install-supervisor.mjs <workspace> --dry-run          # 只预检 + 输出计划，不写任何文件
@@ -26,7 +27,13 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IS_WINDOWS = process.platform === 'win32';
-const PROJECT_SKILL_TEMPLATES = ['plan.md', 'task-brief.md', 'ledger.md', 'review-gate.md'];
+const PROJECT_SKILL_TEMPLATES = ['plan.md', 'task-brief.md', 'ledger.md', 'review-gate.md', 'wake-brief.md'];
+const SETUP_FILES = [
+  'install-supervisor.sh', 'install-supervisor.mjs', 'sync-kit.sh', 'selftest.sh', 'verify-facts.sh',
+  'build-dist.sh', 'build-public-repo.sh', '一键安装口令.md', '安装说明.md', '朋友测试指南.md',
+  'AGENTS.supervisor.md', '主管手册.md', 'DECISIONS.template.md', 'team-roster.template.md',
+  'team-ledger.template.md', 'VERSION', 'CHANGELOG.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
+];
 const AGENTS_TITLE = '# 项目主管作业规则（本工作区）';
 const AGENTS_MARKER = '<!-- dsh-project-supervisor -->';
 const KIT_NAME = 'project-supervisor-kit';
@@ -48,6 +55,7 @@ function parseArgs(argv) {
   const options = {
     target: '',
     research: false,
+    setup: false,
     globalSkill: false,
     force: false,
     dryRun: false,
@@ -56,6 +64,7 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--with-research') options.research = true;
+    else if (arg === '--with-setup') options.setup = true;
     else if (arg === '--global-skill') options.globalSkill = true;
     else if (arg === '--force') options.force = true;
     else if (arg === '--dry-run') options.dryRun = true;
@@ -134,6 +143,8 @@ function precheck(kit, options) {
   requireFile('AGENTS.supervisor.md');
   requireFile('主管手册.md');
   requireFile('DECISIONS.template.md');
+  requireFile('team-roster.template.md');
+  requireFile('team-ledger.template.md');
   requireFile('VERSION');
   requireFile('skill/SKILL.md');
   for (const name of PROJECT_SKILL_TEMPLATES) requireFile('skill/templates/' + name);
@@ -151,6 +162,9 @@ function precheck(kit, options) {
   if (options.research) {
     const research = path.join(kit, 'research');
     if (listFiles(research).filter((name) => name.endsWith('.md')).length === 0) missing.push('research/*.md（--with-research）');
+  }
+  if (options.setup) {
+    for (const name of SETUP_FILES) requireFile(name);
   }
   const version = readText(path.join(kit, 'VERSION')).trim();
   if (!version) missing.push('VERSION（内容为空）');
@@ -302,9 +316,23 @@ function install(options) {
     return { written, overwritten, skipped, removed };
   };
 
-  // 2) project-supervisor 技能目录（SKILL.md + templates/ 四个模板）
+  // 2) project-supervisor 技能目录（SKILL.md + templates/ 五个模板（含 wake-brief））
   syncManagedDir(path.join(kit, 'skill'), path.join(target, '.dsh', 'skills', 'project-supervisor'),
     '.dsh/skills/project-supervisor/', target);
+
+  // 2.4) 团队名册/账本模板（只补缺失，从不覆盖用户已有文件）
+  for (const seed of [
+    { src: 'team-roster.template.md', dest: path.join(target, '.dsh', 'team-roster.md'), label: '.dsh/team-roster.md' },
+    { src: 'team-ledger.template.md', dest: path.join(target, '.dsh', 'team-ledger.md'), label: '.dsh/team-ledger.md' },
+  ]) {
+    if (exists(seed.dest)) {
+      log(seed.label + ' 已存在，跳过（不覆盖）');
+      continue;
+    }
+    copyTo(path.join(kit, seed.src), seed.dest);
+    changed += 1;
+    log('写入 ' + seed.label, [seed.dest]);
+  }
 
   // 2.5) improving-prompts 技能目录（SKILL.md + LICENSE + references/ + templates/）
   syncManagedDir(path.join(kit, 'skill-improving-prompts'), path.join(target, '.dsh', 'skills', 'improving-prompts'),
@@ -367,6 +395,37 @@ function install(options) {
     }
   }
 
+  // 4.6) 可选：工程化脚本放进 <ws>/setup/（默认只补缺失；--force 才覆盖）。
+  if (options.setup) {
+    const setupDir = path.join(target, 'setup');
+    let written = 0;
+    let overwritten = 0;
+    let skipped = 0;
+    const plannedPaths = [];
+    for (const name of SETUP_FILES) {
+      const source = path.join(kit, name);
+      const dest = path.join(setupDir, name);
+      if (!exists(dest)) {
+        copyTo(source, dest);
+        written += 1;
+        changed += 1;
+        plannedPaths.push(dest);
+      } else if (options.force) {
+        const backup = backupOf(dest);
+        copyTo(source, dest);
+        overwritten += 1;
+        changed += 1;
+        plannedPaths.push(dest, backup);
+      } else {
+        skipped += 1;
+      }
+    }
+    const parts = ['新增 ' + written];
+    if (overwritten > 0) parts.push('覆盖 ' + overwritten);
+    if (skipped > 0) parts.push('跳过 ' + skipped);
+    log('setup/（工程化脚本：' + parts.join('，') + ' 个文件）', plannedPaths);
+  }
+
   // 4.5) 可选：权限补丁工具（逐文件处理）
   if (exists(path.join(kit, 'patches'))) {
     syncManagedDir(path.join(kit, 'patches'), path.join(target, 'patches'), 'patches/', null);
@@ -389,6 +448,8 @@ function install(options) {
     version: kitVersion,
     installedAt: new Date().toISOString(),
     installer: INSTALLER,
+    withResearch: options.research === true,
+    withSetup: options.setup === true,
   };
   if (!upToDate) {
     if (dry) {

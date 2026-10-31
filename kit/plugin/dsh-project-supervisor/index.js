@@ -34,17 +34,53 @@ import path from 'node:path';
 export const inject = ['webServer'];
 
 const ROUTE_PATH = '/plugins/dsh-project-supervisor/config';
+const MODELS_PATH = '/plugins/dsh-project-supervisor/models';
+const MODELS_CACHE_MS = 60_000;
+let modelsCache = { at: 0, routes: [] };
 const CONFIG_SEGMENTS = ['.dsh', 'supervisor.config.json'];
 const MAX_BODY_BYTES = 8192;
 const IS_WINDOWS = process.platform === 'win32';
 const BOOLEAN_KEYS = ['beginnerGuard', 'promptPolish', 'requirementInterview'];
 const DISPATCH_MODES = ['efficiency', 'strict'];
+const MODEL_MODES = ['auto', 'manual'];
+const MODEL_TASK_TYPES = ['planning', 'implement', 'review', 'research', 'docs', 'verify'];
+// 空字符串表示「不指定，用 DSH 默认」；否则必须是 provider/model 形式。
+const MODEL_ROUTE_RE = /^$|^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/;
+const DEFAULT_MODEL_COLLAB = {
+  enabled: false,
+  mode: 'auto',
+  assignments: { planning: '', implement: '', review: '', research: '', docs: '', verify: '' },
+  autoRoutes: { planning: '', implement: '', review: '', research: '', docs: '', verify: '' },
+};
 const DEFAULT_CONFIG = {
   beginnerGuard: true,
   promptPolish: true,
   requirementInterview: true,
   dispatchMode: 'efficiency',
+  modelCollaboration: DEFAULT_MODEL_COLLAB,
 };
+
+/** Normalize a task -> provider/model map; empty string means "use DSH default". */
+function normalizeRouteSet(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const routes = {};
+  for (const task of MODEL_TASK_TYPES) {
+    const route = raw[task];
+    routes[task] = typeof route === 'string' && MODEL_ROUTE_RE.test(route.trim()) ? route.trim() : '';
+  }
+  return routes;
+}
+
+/** Normalize the model-collaboration group (tolerates partial/legacy values). */
+function normalizeModelCollaboration(value) {
+  const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    enabled: raw.enabled === true,
+    mode: raw.mode === 'manual' ? 'manual' : 'auto',
+    assignments: normalizeRouteSet(raw.assignments),
+    autoRoutes: normalizeRouteSet(raw.autoRoutes),
+  };
+}
 
 /** Send JSON; never throws (a closed response must not bubble up). */
 function sendJson(res, status, value) {
@@ -200,6 +236,7 @@ async function readConfig(target) {
     promptPolish: stored.promptPolish !== false,
     requirementInterview: stored.requirementInterview !== false,
     dispatchMode: stored.dispatchMode === 'strict' ? 'strict' : 'efficiency',
+    modelCollaboration: normalizeModelCollaboration(stored.modelCollaboration),
     path: stored.path,
   };
 }
@@ -251,6 +288,24 @@ async function writeConfig(target, patch) {
           : current.dispatchMode === 'strict'
             ? 'strict'
             : 'efficiency',
+      modelCollaboration: (() => {
+        const prev = normalizeModelCollaboration(current.modelCollaboration);
+        if (!patch.modelCollaboration || typeof patch.modelCollaboration !== 'object') return prev;
+        const incomingAssignments =
+          patch.modelCollaboration.assignments && typeof patch.modelCollaboration.assignments === 'object'
+            ? patch.modelCollaboration.assignments
+            : {};
+        const incomingAutoRoutes =
+          patch.modelCollaboration.autoRoutes && typeof patch.modelCollaboration.autoRoutes === 'object'
+            ? patch.modelCollaboration.autoRoutes
+            : {};
+        return normalizeModelCollaboration({
+          ...prev,
+          ...patch.modelCollaboration,
+          assignments: { ...prev.assignments, ...incomingAssignments },
+          autoRoutes: { ...prev.autoRoutes, ...incomingAutoRoutes },
+        });
+      })(),
       updatedAt: new Date().toISOString(),
       source: 'dsh-project-supervisor',
     },
@@ -259,6 +314,63 @@ async function writeConfig(target, patch) {
   );
   await writeFileAtomic(file, payload + '\n');
   return file;
+}
+
+/** Enumerate registered LLM provider/model routes for the panel (best effort). */
+async function discoverModelRoutes(ctx) {
+  try {
+    const llm = ctx && typeof ctx.get === 'function' ? ctx.get('llm') : undefined;
+    if (!llm || typeof llm.listProviders !== 'function') return [];
+    const routes = [];
+    for (const provider of llm.listProviders()) {
+      let models = [];
+      try {
+        models = typeof llm.listModels === 'function' ? await llm.listModels(provider.id) : [];
+      } catch {
+        models = [];
+      }
+      for (const model of models || []) {
+        if (model && typeof model.id === 'string' && model.id.length > 0) {
+          routes.push({ provider: provider.id, model: model.id, name: model.name || model.id });
+        }
+      }
+    }
+    return routes;
+  } catch {
+    return [];
+  }
+}
+
+async function sendModels(ctx, res) {
+  const now = Date.now();
+  if (now - modelsCache.at > MODELS_CACHE_MS) {
+    let routes = [];
+    try {
+      routes = await discoverModelRoutes(ctx);
+    } catch {
+      routes = [];
+    }
+    modelsCache = { at: Date.now(), routes };
+    sendJson(res, 200, { ok: true, routes });
+    return;
+  }
+  sendJson(res, 200, { ok: true, routes: modelsCache.routes });
+}
+
+async function modelsHandler(ctx, req, res) {
+  try {
+    if (req.method !== 'GET') {
+      sendJson(res, 405, { ok: false, error: 'method-not-allowed' });
+      return;
+    }
+    if (!isSameOrigin(req)) {
+      sendJson(res, 403, { ok: false, error: 'forbidden' });
+      return;
+    }
+    await sendModels(ctx, res);
+  } catch {
+    sendJson(res, 200, { ok: true, routes: [] });
+  }
 }
 
 async function handler(req, res) {
@@ -310,6 +422,59 @@ async function handler(req, res) {
         patch.dispatchMode = body.dispatchMode;
         any = true;
       }
+      if (Object.prototype.hasOwnProperty.call(body, 'modelCollaboration')) {
+        const mc = body.modelCollaboration;
+        if (!mc || typeof mc !== 'object' || Array.isArray(mc)) {
+          sendJson(res, 400, { ok: false, error: 'invalid-model-collaboration' });
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(mc, 'enabled') && typeof mc.enabled !== 'boolean') {
+          sendJson(res, 400, { ok: false, error: 'invalid-model-collaboration' });
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(mc, 'mode') && !MODEL_MODES.includes(mc.mode)) {
+          sendJson(res, 400, { ok: false, error: 'invalid-model-mode' });
+          return;
+        }
+        if (Object.prototype.hasOwnProperty.call(mc, 'assignments')) {
+          const assignments = mc.assignments;
+          if (!assignments || typeof assignments !== 'object' || Array.isArray(assignments)) {
+            sendJson(res, 400, { ok: false, error: 'invalid-model-assignments' });
+            return;
+          }
+          for (const task of Object.keys(assignments)) {
+            if (!MODEL_TASK_TYPES.includes(task)) {
+              sendJson(res, 400, { ok: false, error: 'invalid-model-task' });
+              return;
+            }
+            const route = assignments[task];
+            if (typeof route !== 'string' || !MODEL_ROUTE_RE.test(route.trim())) {
+              sendJson(res, 400, { ok: false, error: 'invalid-model-route' });
+              return;
+            }
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(mc, 'autoRoutes')) {
+          const autoRoutes = mc.autoRoutes;
+          if (!autoRoutes || typeof autoRoutes !== 'object' || Array.isArray(autoRoutes)) {
+            sendJson(res, 400, { ok: false, error: 'invalid-model-auto-routes' });
+            return;
+          }
+          for (const task of Object.keys(autoRoutes)) {
+            if (!MODEL_TASK_TYPES.includes(task)) {
+              sendJson(res, 400, { ok: false, error: 'invalid-model-task' });
+              return;
+            }
+            const route = autoRoutes[task];
+            if (typeof route !== 'string' || !MODEL_ROUTE_RE.test(route.trim())) {
+              sendJson(res, 400, { ok: false, error: 'invalid-model-route' });
+              return;
+            }
+          }
+        }
+        patch.modelCollaboration = mc;
+        any = true;
+      }
       if (!any) {
         sendJson(res, 400, { ok: false, error: 'no-field-to-update' });
         return;
@@ -338,22 +503,22 @@ export function apply(ctx) {
       // logging must never throw
     }
   };
-  try {
+  const register = (path, routeHandler, label) => {
     ctx.effect(
       () => {
         try {
-          return ctx.webServer.register({
-            kind: 'exact',
-            path: ROUTE_PATH,
-            handler,
-          });
+          return ctx.webServer.register({ kind: 'exact', path, handler: routeHandler });
         } catch (error) {
-          warn('[dsh-project-supervisor] config route disabled: ' + ((error && error.message) || 'unknown error'));
+          warn('[dsh-project-supervisor] ' + label + ' disabled: ' + ((error && error.message) || 'unknown error'));
           return undefined;
         }
       },
-      'project-supervisor: panel config route',
+      'project-supervisor: ' + label,
     );
+  };
+  try {
+    register(ROUTE_PATH, handler, 'panel config route');
+    register(MODELS_PATH, (req, res) => modelsHandler(ctx, req, res), 'panel models route');
   } catch (error) {
     warn('[dsh-project-supervisor] plugin disabled: ' + ((error && error.message) || 'unknown error'));
   }

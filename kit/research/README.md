@@ -1,6 +1,6 @@
 # 调研总览：vibe coding「项目主管」怎么当
 
-> 调研日期：2026-10-24。方法：项目主管并行开启 4 个研究对话框（各写各的文件、写范围互不重叠），产出 4 份调研报告；后续按功能/评审/学习追加 7 份专题报告（05 验收评审、06 零基础保护评审、07 新项目需求追问、08 追问评审、09 superpowers 学习笔记、10 工作流硬化评审、11 安装器修复复核）。主管再抽样核验引用（GitHub API 核对仓库与星数、抽查链接可访问性、核对官方文档原文）。
+> 调研日期：2026-10-24。方法：项目主管并行开启 4 个研究对话框（各写各的文件、写范围互不重叠），产出 4 份调研报告；后续按功能/学习追加专题报告（07 新项目需求追问、09 superpowers 学习笔记）。主管再抽样核验引用（GitHub API 核对仓库与星数、抽查链接可访问性、核对官方文档原文）。
 >
 > 事实快照：2026-10-24。星数、外部链接、DSH 版本与源码行号都会漂移；复检用 `setup/verify-facts.sh`（自动抽查链接 / GitHub 星数 / DSH 常量，DSH 升级后跑）；精确数值请以复检输出为准。
 
@@ -12,14 +12,10 @@
 | [02-multi-agent-supervisor.md](02-multi-agent-supervisor.md) | 多智能体 supervisor / orchestrator 模式 | 主管的核心职责是「定可验收产物 + 切分写范围 + 显式终止/依赖 + 只收摘要 + 亲自验收」；多智能体 token 约为单会话 15×，只适合高价值任务 |
 | [03-chinese-community.md](03-chinese-community.md) | 中文社区「AI 项目经理 / 项目总监 / 主 Agent」资料 | 中文实践把主管职责外化为流程：意图路由、计划 DAG、单写者纪律、只读评审、确定性验收、Clean/Partial/Blocked 交付分级 |
 | [04-dsh-agent-teams.md](04-dsh-agent-teams.md) | DSH 工作区 / 会话（对话框）/ Agent Teams 的真实语义 | 「对话框」= Session；teammate 是持久 child 会话，藏在会话页头 Team 面板；写范围只是提示、消息不重发、owner 不自动释放 |
-| 05-acceptance-review.md（内部评审，不随包分发） | 主管载体与调研报告的独立只读验收 | 「有条件通过」：1 项 blocking（授权口径与 DSH 固定策略冲突）已修 |
-| 06-beginner-guard-review.md（内部评审，不随包分发） | 零基础用户保护 20 类错误覆盖度评审 | 「有条件通过」：3 项 blocking（密钥落地、先读回、载体旧版）已修，复审判定通过 |
 | [07-requirement-interview.md](07-requirement-interview.md) | 新项目需求追问的开源参考（MIT 为主） | 可照抄的是「追问预算与节奏」：spec-kit 的 5 问定额 + superpowers 的一条一问/HARD-GATE + BMAD 的快慢双路径；8 个仓库中 6 个 MIT |
-| 08-interview-review.md（内部评审，不随包分发） | 新项目需求追问功能的独立只读评审 | 「有条件通过」：2 项 blocking（触发判据把套件 AGENTS.md 当旧项目证据、批数上限矛盾）已修，9 条 advisory 已处理 |
 | [09-superpowers-learning.md](09-superpowers-learning.md) | superpowers 项目（MIT）可迁移的 14 个工作流机制 | 值得学的是流程而非口号：计划落文件 + 任务 brief、每任务实现/评审分离、完成声明过验证门、返工有上限、裁决进账本 |
-| 10-hardening-review.md（内部评审，不随包分发） | 工作流硬化 14 条与套件 v1.8.0 的独立只读评审 | 「有条件通过」：3 项 blocking（AGENTS 命令模板与两段式冲突/套件漂移/SKILL 体积口径）已修，修后 scoped re-review 复核通过 |
-| 11-installer-fixes-review.md（内部评审，不随包分发） | 四个安装器按第三方审查修复后的独立复核 | **「通过」无 blocking**：高危 3 / 中危 4 / 低危 8 全部 PASS（dry-run 零写入、force 升级、损坏 JSON 非 0、copy 卸载、无 python3）；3 项 advisory 已处理（11 排除清单/打包 sha 说明/sync 收尾） |
-| 12-public-repo-review.md（内部评审，不随包分发） | 公开仓库对外文档/安装/发布链审查 | 「有条件通过」：2 项 blocking（zip 路线命令/目录名错、版本状态滞后）已修，12 advisory 处理（v1.8.4） |
+
+> 内部独立评审报告（05/06/08/10/11/12/13/14 与事故报告 INCIDENT）只保留在工作区，不随分享包/公开仓库分发；本索引只列公开报告。
 
 ## 交叉结论（至少两份报告共同支持）
 
@@ -70,4 +66,3 @@
 ## 一句话给未来会话
 
 **主管负责把模糊目标变成可验证的契约，并把契约派给独立的对话框；验收看证据，不看口头承诺。**
-- `INCIDENT-2026-10-25.md`：发布脚本 rsync 覆盖事故报告（错误提交保留与影响矩阵，D42）

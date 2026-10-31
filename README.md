@@ -19,7 +19,7 @@
 
 - **常驻规则包**：把 `AGENTS.md`、两个技能（项目主管、提示词润色）和《主管手册》装进任意工作区——开会话就自动以「主管」方式工作：拆目标、登记任务板、用 Agent Teams 并行打开对话框架、验收产物。
 - **Web「主管」面板**（本仓库根目录即 DSH 插件包）：工程底线自检、主管工作流、快捷口令、三个可持久化开关（零基础保护 / 提示词润色 / 新项目需求追问）和页面最上端的工作模式选择（效率优先 / 严格派发）。
-- **分享包内容**（`kit/`）：一条命令把主管装进任意工作区（macOS/Linux/Windows）；含模板、调研报告与可选权限补丁。维护/打包脚本在源工作区，不随公开仓库分发。
+- **分享包内容**（`kit/`）：一条命令把主管装进任意工作区（macOS/Linux/Windows）；含模板、调研报告、工程化脚本（`kit/` 内的 sync-kit/selftest/verify-facts/build-dist）与可选权限补丁；`--with-setup` 可把脚本一并装进目标工作区。
 - **可选权限补丁**：给单个对话框按风险传沙箱范围（`read-only` / `workspace-write` / `danger-full-access`）与只读工具白名单。
 
 ## 快速开始 / Quick start
@@ -45,10 +45,10 @@ dsh plugin --profile web add github:Midnight-1991/dsh-project-supervisor
 
 ```bash
 # macOS / Linux
-bash kit/install-supervisor.sh /path/to/your-workspace --with-research
+bash kit/install-supervisor.sh /path/to/your-workspace --with-research --with-setup
 
 # Windows（PowerShell / CMD）
-node kit/install-supervisor.mjs C:\path\to\your-workspace --with-research
+node kit/install-supervisor.mjs C:\path\to\your-workspace --with-research --with-setup
 ```
 
 **B. 从 [Releases](https://github.com/Midnight-1991/dsh-project-supervisor/releases) 下载 zip（解压后，包根目录没有 `kit/`）**
@@ -58,10 +58,10 @@ unzip project-supervisor-kit-*.zip
 cd project-supervisor-kit-*
 
 # macOS / Linux
-bash install-supervisor.sh /path/to/your-workspace --with-research
+bash install-supervisor.sh /path/to/your-workspace --with-research --with-setup
 
 # Windows（PowerShell / CMD）
-node install-supervisor.mjs C:\path\to\your-workspace --with-research
+node install-supervisor.mjs C:\path\to\your-workspace --with-research --with-setup
 ```
 
 两条路线装出的内容相同；zip 路线的插件安装是 `cd plugin/dsh-project-supervisor`，仓库路线是 `cd kit/plugin/dsh-project-supervisor`。
@@ -83,8 +83,8 @@ node install-supervisor.mjs C:\path\to\your-workspace --with-research
 | 主管工作模式 | 最上端：效率优先（默认）/ 严格派发；写入 `.dsh/supervisor.config.json` 的 `dispatchMode` |
 | 选择项目 | 按会话 cwd 去重，默认选含 `AGENTS.md` 的项目；可手动切换 |
 | 工程底线自检 | 9 项探测：`.git`、`README.md`、`.gitignore`、`DECISIONS.md`、`AGENTS.md`、`.env.example`、`research/`、`setup/`、`.dsh/skills` |
-| 三张开关卡片 | 零基础保护、提示词润色、新项目需求追问；默认全开，可折叠并存住选择 |
-| 快捷动作 | 复制开工口令、复制套件安装命令、复制规则路径；每项带可展开说明 |
+| 四张开关卡片 | 零基础保护、提示词润色、新项目需求追问、模型协作（默认关）；可折叠并存住选择 |
+| 快捷动作 | 复制开工口令（含规则文件路径）、复制一键安装口令（新工作区）、复制套件安装命令；每项带可展开说明 |
 
 严格派发模式下：任何文件写入都交给对话框，主管只拆解、评审、验收、集成。
 
@@ -126,15 +126,15 @@ node scripts/host-smoke.mjs     # host endpoint 16 项断言（假 ctx/req/res�
 node scripts/compat-check.mjs   # Windows/路径/HTTP 崩溃安全 32 项（干净克隆下应 0 FAIL）
 
 # 分享包安装器（在仓库根目录）
-bash kit/install-supervisor.sh /tmp/test-workspace --with-research   # macOS/Linux
-node kit/install-supervisor.mjs /tmp/test-workspace --with-research  # Windows/跨平台
+bash kit/install-supervisor.sh /tmp/test-workspace --with-research --with-setup   # macOS/Linux
+node kit/install-supervisor.mjs /tmp/test-workspace --with-research --with-setup  # Windows/跨平台
 ```
 
 浏览器 e2e 脚本 `scripts/e2e-screenshot.mjs` 需要本机 DSH 地址与 token（见脚本头注释），只用于开发者。
 
 ## 状态 / Status
 
-**Beta（测试中）**。当前：插件 0.5.1 / **规则套件 1.8.4**（对外文档修复版）。已完成：面板 UI、四类配置、跨平台崩溃安全、工作流硬化 14 条 + 技能模板分发（v1.8.0）、套件安装/分享、独立评审修复、安装器审查修复（dry-run 零写入 / force 升级 / 无 python3，v1.8.1）、协作纪律 `wait_agent` 超时语义与长任务拆分（v1.8.2）、配置生效语义（每任务重读 / 切换只影响后续 / 开工选项留档，v1.8.3）、公开仓库审查修复（zip 路线命令、版本状态、断链与自测路径，v1.8.4）；未完成：Windows 真机 e2e、更多真实项目演练、DSH 版本升级后的兼容回归。
+**Beta（测试中）**。当前：插件 0.7.3 / **规则套件 1.11.2**。已完成：面板 UI、四类配置、跨平台崩溃安全、工作流硬化 14 条 + 技能模板分发（v1.8.0）、套件安装/分享、独立评审修复、安装器审查修复（dry-run 零写入 / force 升级 / 无 python3，v1.8.1）、协作纪律 `wait_agent` 超时语义与长任务拆分（v1.8.2）、配置生效语义（每任务重读 / 切换只影响后续 / 开工选项留档，v1.8.3）、公开仓库审查修复（zip 路线命令、版本状态、断链与自测路径，v1.8.4）、发布前审查修复（公开文档去内部评审引用、打包断言、截图脱敏，v1.11.2）；未完成：Windows 真机 e2e、更多真实项目演练、DSH 版本升级后的兼容回归。
 
 ## 许可证与第三方 / License
 

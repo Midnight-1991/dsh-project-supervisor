@@ -157,7 +157,7 @@ check('B4 installer is Node-only and cross-platform', () => {
 check('B5 plugin runtime files avoid absolute developer paths', () => {
   for (const name of ['index.js', 'client.js', 'install-plugin.mjs', 'package.json']) {
     const text = fs.readFileSync(path.join(PLUGIN_DIR, name), 'utf8');
-    assert(!text.includes('/Users/'), name + ' contains /Users/ absolute path');
+    assert(!text.includes('<HOME>/'), name + ' contains <HOME>/ absolute path');
   }
 });
 check('B6 importing the host module has no side effects (no fs writes at import)', () => {
@@ -194,18 +194,20 @@ check('C4 apply tolerates webServer.register throwing', () => {
 // ---------------------------------------------------------------------------
 // D. HTTP handler: always answers, never throws
 // ---------------------------------------------------------------------------
-let route = null;
+const routes = new Map();
 apply({
   effect(callback) {
     callback();
   },
   webServer: {
     register(options) {
-      route = options;
+      routes.set(options.path, options);
       return () => {};
     },
   },
 });
+const route = routes.get('/plugins/dsh-project-supervisor/config');
+const modelsRoute = routes.get('/plugins/dsh-project-supervisor/models');
 
 function fakeRequest({ method = 'GET', url = '/', headers = {}, body = null, remoteAddress = '127.0.0.1' } = {}) {
   const chunks = [];
@@ -260,9 +262,20 @@ async function checkAsync(name, fn) {
   }
 }
 
-await checkAsync('D1 route registered as exact path', () => {
-  assert(route && route.kind === 'exact', 'route not registered');
+await checkAsync('D1 config route registered as exact path', () => {
+  assert(route && route.kind === 'exact', 'config route not registered');
   assert(route.path === '/plugins/dsh-project-supervisor/config', 'unexpected route path: ' + route.path);
+});
+await checkAsync('D1b models route registered as exact path', () => {
+  assert(modelsRoute && modelsRoute.kind === 'exact', 'models route not registered');
+  assert(modelsRoute.path === '/plugins/dsh-project-supervisor/models', 'unexpected route path: ' + modelsRoute.path);
+});
+await checkAsync('D1c models route returns an empty list when llm is unavailable', async () => {
+  const res = fakeResponse();
+  await modelsRoute.handler(fakeRequest({ url: '/plugins/dsh-project-supervisor/models' }), res);
+  assert(res.status === 200, 'expected 200 got ' + res.status);
+  const body = JSON.parse(res.body);
+  assert(body.ok === true && Array.isArray(body.routes) && body.routes.length === 0, 'expected empty routes');
 });
 await checkAsync('D2 cross-origin request rejected 403', async () => {
   const res = await request(fakeRequest({ headers: { origin: 'http://evil.example' } }));

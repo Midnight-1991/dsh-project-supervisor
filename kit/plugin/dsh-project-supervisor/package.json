@@ -1,6 +1,6 @@
 {
   "name": "dsh-project-supervisor",
-  "version": "0.5.1",
+  "version": "0.7.3",
   "type": "module",
   "description": "Beta / under test. Project supervisor panel for DeepSeek Harness: a read-only dashboard that checks a workspace against the supervisor kit's engineering baseline, shows the supervisor workflow and beginner safeguards, and copies ready-to-use kickoff commands.",
   "keywords": [
