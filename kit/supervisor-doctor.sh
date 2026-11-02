@@ -172,7 +172,11 @@ fi
 if [ -f "$KIT_DIR/selftest.sh" ]; then add_check kit.selftest PASS "套件 selftest" "存在（$KIT_DIR/selftest.sh）" ""
 else add_check kit.selftest WARN "套件 selftest" "未找到 selftest.sh" "安装/同步套件后可用一键验收"; fi
 
-if [ ! -f "$KIT_DIR/sync-kit.sh" ]; then
+if [ -f "$WORKSPACE/.dsh/supervisor-kit.json" ]; then
+  # 安装目标工作区（非套件源）：sync-kit 是源工作区维护脚本，镜像由源端负责；
+  # 这里检查会因分发包主管手册缺少「分享给朋友」行而误报，改为 SKIP。
+  add_check kit.sync SKIP "套件同步一致性" "安装目标工作区（非套件源），镜像一致性由源工作区维护" ""
+elif [ ! -f "$KIT_DIR/sync-kit.sh" ]; then
   add_check kit.sync SKIP "套件同步一致性" "未找到 sync-kit.sh，跳过" ""
 else
   if ( cd "$KIT_DIR" && bash "$KIT_DIR/sync-kit.sh" --check >/dev/null 2>&1 ); then

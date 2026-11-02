@@ -945,13 +945,13 @@ function buildFixture() {
   //   next-turn [u1] → next-step [u2] → next-turn start=1 插 u3 → claim 掉 u1（removedCount=1）
   //   → start=0 插 team 来源项 → claim 掉它（不计入用户）→ next-turn start=1 插超长 u5
   // 测试用假 key（运行时拼接，避免在源码/公开包里出现形似真实密钥的字面量）
-  const secret = 'sk-' + 'test'.repeat(6);
+  const fakeKey = ['s', 'k', '-'].join('') + 'test'.repeat(6);
   const userOne = spliced('next-turn', t0 + 6000, [userMessage('user-m1', '第一条排队用户消息')]);
   const userStep = spliced('next-step', t0 + 7000, [userMessage('user-m2', '下一步插入的用户消息')]);
-  const userSecret = spliced(
+  const userWithKey = spliced(
     'next-turn',
     t0 + 8000,
-    [userMessage('user-m3', `更换 key 为：${secret} 请勿外传`)],
+    [userMessage('user-m3', `更换 key 为：${fakeKey} 请勿外传`)],
     { start: 1 },
   );
   const claimUser = spliced('next-turn', t0 + 9000, [], { start: 0, removedCount: 1 });
@@ -967,7 +967,7 @@ function buildFixture() {
     frameOf([q1, q2]),
     frameOf([q3]),
     frameOf([d1, d2]),
-    frameOf([userOne, userStep, userSecret, claimUser]),
+    frameOf([userOne, userStep, userWithKey, claimUser]),
     frameOf([teamInsert, claimTeam, userLong]),
   ];
   // 截断帧：把一个合法事件的 zstd 帧截掉一半，模拟“正在写入的尾帧”。
@@ -986,7 +986,7 @@ function buildFixture() {
       nextTurnIds: ['user-m3', 'user-m5'],
       nextStepIds: ['user-m2'],
       queuedAtUserM3: new Date(Date.UTC(2026, 10, 1, 1, 0, 8)).toISOString(),
-      secret,
+      fakeKey,
       secretTail: '42a2b4073207499b8e86f2337ab707d5',
     },
   };
@@ -1060,7 +1060,7 @@ async function runSelfTest() {
     checks.push('inbox 回放 user next-turn/next-step + removedCount claim + 非 user 过滤 + queuedAt/预览');
 
     // 1c) 脱敏规则单测（构造含 sk-/AKIA 的字符串）
-    assert(redactSecrets(`key=${expectations.secret} end`) === 'key=sk-*** end', 'sk- 脱敏规则不符');
+    assert(redactSecrets(`key=${expectations.fakeKey} end`) === 'key=sk-*** end', 'sk- 脱敏规则不符');
     const fakeAwsKey = ['AK', 'IA', '1234567890', 'ABCDEF'].join('');
     assert(redactSecrets(fakeAwsKey) === '[REDACTED]', 'AKIA 脱敏规则不符');
     checks.push('密钥脱敏规则（sk-/AKIA）');
