@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for trying **dsh-project-supervisor** (Beta). Issues and PRs are welcome.
+Thanks for using **dsh-project-supervisor** — stable project (v1.0.0). Issues and PRs are welcome.
 
 ## Development quick start
 

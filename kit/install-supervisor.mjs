@@ -27,10 +27,11 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const IS_WINDOWS = process.platform === 'win32';
-const PROJECT_SKILL_TEMPLATES = ['plan.md', 'task-brief.md', 'ledger.md', 'review-gate.md', 'wake-brief.md'];
+const PROJECT_SKILL_TEMPLATES = ['plan.md', 'task-brief.md', 'ledger.md', 'review-gate.md', 'wake-brief.md', 'auto-work-queue.md', 'handoff.md'];
 const SETUP_FILES = [
   'install-supervisor.sh', 'install-supervisor.mjs', 'sync-kit.sh', 'selftest.sh', 'verify-facts.sh',
-  'build-dist.sh', 'build-public-repo.sh', '一键安装口令.md', '安装说明.md', '朋友测试指南.md',
+  'build-dist.sh', 'build-public-repo.sh', 'supervisor-doctor.sh', 'supervisor-verify.sh',
+  '一键安装口令.md', '安装说明.md', '朋友测试指南.md',
   'AGENTS.supervisor.md', '主管手册.md', 'DECISIONS.template.md', 'team-roster.template.md',
   'team-ledger.template.md', 'VERSION', 'CHANGELOG.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md',
 ];
@@ -148,6 +149,7 @@ function precheck(kit, options) {
   requireFile('VERSION');
   requireFile('skill/SKILL.md');
   for (const name of PROJECT_SKILL_TEMPLATES) requireFile('skill/templates/' + name);
+  requireFile('skill/scripts/peek-mailbox.mjs');
   requireFile('skill-improving-prompts/SKILL.md');
   requireFile('skill-improving-prompts/LICENSE');
   if (listFiles(path.join(kit, 'skill-improving-prompts', 'references')).filter((name) => name.endsWith('.md')).length === 0) {
@@ -316,7 +318,7 @@ function install(options) {
     return { written, overwritten, skipped, removed };
   };
 
-  // 2) project-supervisor 技能目录（SKILL.md + templates/ 五个模板（含 wake-brief））
+  // 2) project-supervisor 技能目录（SKILL.md + templates/ 七个模板 + scripts/ 只读脚本）
   syncManagedDir(path.join(kit, 'skill'), path.join(target, '.dsh', 'skills', 'project-supervisor'),
     '.dsh/skills/project-supervisor/', target);
 

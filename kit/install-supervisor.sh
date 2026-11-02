@@ -136,9 +136,12 @@ need_file team-roster.template.md
 need_file team-ledger.template.md
 need_file VERSION
 need_file skill/SKILL.md
-for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
   need_file "skill/templates/$tpl"
 done
+[ "$(count_md "$KIT_DIR/skill/templates")" = "7" ] || MISSING+=("skill/templates/*.md（应为 7 个）")
+[ -s "$KIT_DIR/skill/scripts/peek-mailbox.mjs" ] || MISSING+=("skill/scripts/peek-mailbox.mjs")
+need_file skill/scripts/peek-mailbox.mjs
 need_file skill-improving-prompts/SKILL.md
 need_file skill-improving-prompts/LICENSE
 [ "$(count_md "$KIT_DIR/skill-improving-prompts/references")" -gt 0 ] || MISSING+=("skill-improving-prompts/references/*.md")
@@ -150,7 +153,7 @@ if [ "$WITH_RESEARCH" -eq 1 ] && [ "$(count_md "$KIT_DIR/research")" -eq 0 ]; th
   MISSING+=("research/*.md（--with-research）")
 fi
 if [ "$WITH_SETUP" -eq 1 ]; then
-  for f in install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh 一键安装口令.md 安装说明.md 朋友测试指南.md team-roster.template.md team-ledger.template.md CHANGELOG.md; do
+  for f in install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh supervisor-doctor.sh supervisor-verify.sh 一键安装口令.md 安装说明.md 朋友测试指南.md team-roster.template.md team-ledger.template.md CHANGELOG.md; do
     need_file "$f"
   done
 fi
@@ -277,7 +280,7 @@ EOF
   fi
 }
 
-# 2) project-supervisor 技能目录（SKILL.md + templates/ 五个模板（含 wake-brief））
+# 2) project-supervisor 技能目录（SKILL.md + templates/ 七个模板（含 wake-brief、auto-work-queue、handoff）+ scripts/）
 sync_tree "$KIT_DIR/skill" "$TARGET/.dsh/skills/project-supervisor" \
   ".dsh/skills/project-supervisor/" "$TARGET"
 
@@ -346,7 +349,7 @@ fi
 # ---- 4.6) 可选：工程化脚本放进 <ws>/setup/（默认只补缺失；--force 才覆盖） --
 if [ "$WITH_SETUP" -eq 1 ]; then
   SETUP_DEST="$TARGET/setup"
-  SETUP_FILES=(install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh 一键安装口令.md 安装说明.md 朋友测试指南.md AGENTS.supervisor.md 主管手册.md DECISIONS.template.md team-roster.template.md team-ledger.template.md VERSION CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md)
+  SETUP_FILES=(install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh supervisor-doctor.sh supervisor-verify.sh 一键安装口令.md 安装说明.md 朋友测试指南.md AGENTS.supervisor.md 主管手册.md DECISIONS.template.md team-roster.template.md team-ledger.template.md VERSION CHANGELOG.md LICENSE THIRD_PARTY_NOTICES.md)
   SETUP_WRITTEN=0
   SETUP_OVERWRITTEN=0
   SETUP_SKIPPED=0

@@ -2,10 +2,77 @@
 
 格式：`## [版本] 日期` + 变更分类。版本号与同目录 `VERSION` 一致（源工作区为 `setup/VERSION`）。
 
+## [2.0.0] 2026-11-03
+
+大版本发布：插件 **1.0.0** / 套件 **2.0.0**（自 1.11.2 以来全部未发布批次合并发布；1.13.0 及以下为内部开发批次）。
+
+### 新增
+- **自动工作（无人值守，默认关）**：面板「自动工作」开关 + 队列文件 `.dsh/auto-work-queue.md`（五节：排队任务 / 阻塞 / 待回答的问题 / 自动工作日志 / 经济模式状态）+ tick 周期脉冲；规则含不弹窗提问、不请求授权（推送/发布/删除/花钱等不可逆动作只记「阻塞」）、连续 2 tick 无进展或用户回来即收尾；只读 mailbox 脚本 `peek-mailbox.mjs`；P1 两个可选补丁（timed ask-user / auto-work 权限预设，默认不应用）。
+- **只读队列消息（含用户「排队发送」）**：`peek-mailbox.mjs` 回放 `agent/inbox/spliced`（next-turn / next-step），文本输出 `pending user prompts`，JSON 新增 `userPending{nextTurn,nextStep,nextTurnCount,nextStepCount}`；预览自动脱敏（`sk-`/`ghp_`/`AKIA`/`xox`/`glpat`/`AIza` 等模式 → `sk-***`/`[REDACTED]`），只读、不打断在跑 agent。
+- **更经济的自动化**（`economicalAutoWork`，默认关）：面板「自动工作」行内缩进次级开关（`autoWork` 关闭时置灰、不可单独开启）；开启后自动工作只在 **DeepSeek 谷价时段**推进——谷价 = 北京时间周一至周五 09:00–12:00、14:00–18:00（UTC 01:00–04:00、06:00–10:00）之外的全部时间 + 周末/中国法定节假日全天，峰价约 50%（来源 DeepSeek 官方价格页 2026-11-01 核实）；高峰前 20 分钟只收尾、高峰开始后 ≤10 分钟到检查点暂停（暂停期间零模型调用）、谷价开始后由 tick 续跑（下次 tick 定在谷价开始后 1–3 分钟）；连续性协议（暂停前把结论写盘到队列「经济模式状态」节 + LEDGER + 任务 brief，恢复读状态节 + 任务板 + `list_agents` 幂等续跑）、节假日无内置日历保守处理、仅约束自动工作发起的模型调用。
+- **面板 UI 四分区重排 + 分区级折叠**：「当前项目 → 工作方式 → 运行状态 → 规则自检 → 快捷动作 → 使用说明」单列滚动页；工作方式区两张全宽卡（主管工作模式 + 5 行「工作开关」清单，行尾「说明」在行内展开完整指引）；四个 `[data-zone]` 分区与「使用说明」可折叠（默认只展开工作方式/快捷动作，其余收起为一行摘要，偏好存 `psup.zone.<zone>`）；快捷动作 1 个主按钮 + 6 个 2 列次动作；规则自检 `x / 9` + 进度条 + 9 项网格；复制失败改「手动复制」只读文本层；响应式改容器查询。
+- **效率工具**：`setup/supervisor-doctor.sh`（只读环境体检 16 项，PASS/WARN/FAIL/SKIP + `--json` + `--no-network` 兼容参数）、`setup/supervisor-verify.sh`（12 步一键验收：doctor → sync-kit → verify-facts → 插件三测 → 脚本自测 → 补丁自测 → selftest → git 卫生/密钥扫描）、第 7 个技能模板 `templates/handoff.md`（交接单，上下文风险/换对话框时用）+ 规则触发点（AGENTS「效率工具与交接」、SKILL、主管手册）。
+- **公开仓库正式版化**：公开 README 与市场条目改为正式版标注，状态写「插件 1.0.0 / 规则套件 2.0.0」；`package.json` description 去掉测试期字样；公开截图更新为 v1.0.0 版式（`panel.jpg` / `panel-middle.jpg` / `panel-bottom.jpg` / `panel-mode-strict.jpg` / `panel-interview-off.jpg` 五个文件名，内容由维护者替换）；`build-public-repo.sh` 提交提示改 `v1.0.0`。
+
+### 变更
+- **移除与外部上下文压缩组件的全部集成**（按用户要求，2026-11-01；该组件不在主管引用范围内）：doctor 不再做外部组件健康检查，`--json` 不再输出相关字段；面板删除两张运行态卡（上下文健康 / 成本用量）及其只读运行态接口；规则/套件/文档与测试不再引用该组件（历史过程记录保留原文并加注）。
+- **安全脱敏修复**：`build-public-repo.sh` 的 `sk-`/`ghp_` 等模式改为运行时拼接的正则替换（原先按字面量替换可能导致公开包漏脱敏），公开包密钥断言保留；`peek-mailbox.mjs` 自测 fixture 改为运行时拼接假 key，源码不再出现形似真实密钥的字面量。
+- **版本推进**：套件 **1.13.0 → 2.0.0**、插件 **0.9.0 → 1.0.0**；面板「自动工作」行内新增缩进次级开关「更经济的自动化」（配置字段 `economicalAutoWork`，默认 `false`），config 路由 GET/POST 字段集合同步。
+- 1.13.0 及以下条目为内部开发批次（含自动工作 P0/P1、队列消息只读、更经济的自动化、四分区重排+分区折叠、doctor/verify/handoff、去外部组件引用等），已全部并入本版本。
+
+### 验证
+- `bash setup/sync-kit.sh --check` → 全部一致（**45** 个文件）；`bash setup/selftest.sh` → **PASS 24 / FAIL 0**；`bash setup/verify-facts.sh --offline` → **PASS 11 / WARN 0 / FAIL 0**；`bash setup/supervisor-verify.sh` → **PASS 12 / FAIL 0 / SKIP 0**。
+- 插件：i18n **214** keys×2（中英对齐）、`smoke` PASS、`host-smoke` **50** 项、`compat-check` **34** 项 PASS、`node --check` 6 个文件全绿。
+- 面板 e2e（临时 DSH 实例 1440×900，innerHeight 813）：默认收起态整页 `scrollHeight` **1196px**（旧基线 2957px、上一轮全展开 1812px，**-60%**）、cards 4、switchRows 5、首屏最后一行开关 bottom 770 ≤ 813、运行状态标题 top 806 < 813、四分区按序、console error 0 / runtime exception 0。
+- 构建：发布前重建 `build-dist.sh` / `build-public-repo.sh`；zip **836,711B**、sha256 `3139063816a8095c8ddc2f9ed841630e16badfdff7ad9e28234f46c4d8920271`（记录值；zip 时间戳与内嵌文档使独立重建 ±20B，发布资产以 Release 页随附的 `.sha256` sidecar 为准）。`build-public-repo.sh` → **102** 文件。
+
+## [1.13.0] 2026-11-01（内部开发批次，随 2.0.0 合并发布）
+
+### 新增
+- **P0 环境体检** `setup/supervisor-doctor.sh`（只读，16 项检查）：运行时（node/python3/git）、工作区（git HEAD/脏文件、AGENTS.md ≤13000B、SKILL.md ≤38000B）、套件（VERSION、sync-kit --check、selftest）、插件（版本、node --check、`link:` 安装）、残留（.backups/.bak/临时产物）；输出 PASS/WARN/FAIL/SKIP + 证据/建议，`--json`、`--no-network`（保留兼容参数，脚本不做网络探测）、`--workspace`，exit 0/1/2，兼容 bash 3.2。
+- **P0 一键验收** `setup/supervisor-verify.sh`（只写系统临时目录）：12 步串行编排——doctor(--no-network) → sync-kit --check → verify-facts --offline → 插件 node --check/smoke/host-smoke/compat → `peek-mailbox.mjs --self-test` → `patches/*/patch.py selftest` → selftest（`--fast` 跳过）→ git 卫生 → 密钥扫描；逐步 PASS/FAIL/SKIP + 失败输出尾部，`--json`，单步失败继续、最终统一 exit 1，**不递归调用自身**。
+- **第 7 个技能模板** `templates/handoff.md`（交接单，≤80 行：目标/完成定义/已改文件/任务板状态/验证命令与输出/未完成与下一步/阻塞风险/接手开工指令）+ 规则触发点（AGENTS「效率工具与交接」、SKILL、主管手册）。
+- 插件 **0.9.0**：只读路由 `GET /plugins/dsh-project-supervisor/team-board?cwd=&session=`（成员/任务/待投递消息）；面板运行态卡只剩「团队与任务」一张（放在「运行状态」区，host 未重启时降级提示）；快捷动作 3→7（新增交接单模板、团队状态快照、环境体检口令、一键验收口令）；i18n **214** keys×2（中英对齐）、host-smoke **50** checks、compat **34** PASS。
+- **公开包脱敏修正 + 测试 fixture 去真实密钥**：`build-public-repo.sh` 的 `sk-`/`ghp_` 等正则模式此前按字面量替换导致可能漏脱敏（现按正则替换，公开包密钥断言保留）；`peek-mailbox.mjs` 自测 fixture 改为运行时拼接的假 key，源码不再出现形似真实密钥的字面量。
+- **自动工作读取用户「排队发送」消息**（`peek-mailbox.mjs`）：新增 `agent/inbox/spliced` 回放（next-turn/next-step），文本输出 `pending user prompts`、JSON 新增 `userPending{nextTurn,nextStep,nextTurnCount,nextStepCount}`（条目含 id/queuedAt/target/preview，密钥自动脱敏 `sk-***`/`[REDACTED]` 等；旧字段不变）；`--self-test` 扩为 10 项（inbox 回放/claim/非 user 过滤/脱敏/JSON 形状/limit/空态）；AGENTS/SKILL 自动工作规则补「排队发送 vs 插话发送（Cmd/Ctrl+Enter）」语义、每 tick/长任务前 peek 触发、`userPending > 0` 时尽快收尾当前轮；`--limit` 按列表限条数并 stderr 提示。
+- **面板 UI 重排 + 结构收口**（插件 0.9.0）：「当前项目 → 工作方式 → 运行状态 → 规则自检 → 快捷动作 → 使用说明」单列滚动页；工作方式区改为两张全宽卡——①「主管工作模式」卡内效率优先/严格派发二选一（内容宽 <720px 单列）；②「工作开关」清单卡 5 行：零基础保护 → 自动工作 → 模型协作 → 提示词润色 → 新项目需求追问，每行名称 + 一句话说明 + 右侧开关 + 行尾「说明」展开该行完整指引（默认收起、折叠偏好存 localStorage，模型协作开启时自动展开 auto/manual 两选项与 6 行路由表），不再用卡片墙或两列配对，任何开关状态下都不会出现卡内大片空白；顶部 slim 当前项目条（工作区 chips + 小号「刷新」按钮 + 保留项目名的中间省略路径）；快捷动作 1 个主按钮「复制开工口令」（宽度随内容）+ 6 个 2 列次动作；规则自检改 `x / 9` 分数 + 进度条 + 9 项网格，缺失建议统一列在网格下方；复制失败改为「手动复制」只读文本层；**分区级折叠**：四个 `[data-zone]` 分区（工作方式/运行状态/规则自检/快捷动作）与「使用说明」各带标题行右侧 chevron 折叠按钮（支持键盘、`aria-expanded`/`aria-controls`，点标题行或按钮切换），默认只展开工作方式与快捷动作，其余收起为「标题 + 一行灰色摘要」（运行状态「成员 n · 任务 n · 待投递 n」、规则自检「n / 9 项就绪」、快捷动作「7 个快捷动作」、使用说明「主管四步流程」、工作方式收起时「2 张设置卡」），偏好存 localStorage `psup.zone.<zone>`（'1' 收起/'0' 展开，刷新保持），与行级 `psup.collapsed.<field>` 互不影响；响应式改容器查询（模式 <720px、模型路由/自检 <560px、动作网格 <860px、四步说明 860→两列 / 560→单列）；首屏口径：1440×900（inner 813）下完整呈现工作方式区（最后一行开关 bottom=770 ≤ 813），运行状态区标题（top=806）与团队卡顶部进入首屏、完整内容次屏可达；e2e 默认收起态整页 `scrollHeight` 2957→1812→**1196**px（较旧基线 **-60%**；全展开约 1500px）、cards **4**、switchRows **5**、首屏最后一行开关 bottom **770** ≤ 813 / 运行状态标题 top **806**、console error 0 / runtime exception 0、弹窗自动关闭、公开截图隐藏 toast、按 top/45%/bottom/运行状态区/动作区多档截图；离线 smoke 断言两卡结构、5 行开关顺序、行说明默认收起、5 个分区折叠按钮与默认 `aria-expanded`/`aria-controls`、收起摘要文案、`psup.zone.<zone>` 落盘、214 keys×2。
+- **更经济的自动化**（`economicalAutoWork`，默认关）：面板「自动工作」行内新增缩进次级开关（`autoWork` 关闭时置灰、不可单独开启）；开启后自动工作只在 **DeepSeek 谷价时段**推进——谷价=北京时间周一至周五 **09:00–12:00、14:00–18:00**（UTC 01:00–04:00、06:00–10:00）之外的全部时间 + 周末/中国法定节假日全天（峰价 50%，来源 DeepSeek 官方价格页 2026-11-01 核实）；规则含适用模型条件（模型集合含 `deepseek-official/*` 即适用，全部显式非 DeepSeek 不限制，无法判定保守按适用）、高峰前 **20 分钟**起只收尾、高峰开始后 **≤10 分钟**到检查点暂停、暂停期间零模型调用、谷价开始后由 tick 续跑（下次 tick 在谷价开始后 1–3 分钟）、暂停前结论落盘、恢复幂等（读队列状态节 + 任务板 + `list_agents`，已完成不重派）、节假日保守口径、仅约束自动工作（手动使用不受影响）；状态写入队列文件 `## 经济模式状态` 节；AGENTS / SKILL / 队列模板同步该协议。
+
+### 变更
+- **按用户要求（2026-11-01）移除与外部上下文压缩组件的全部集成**（该组件不在主管引用范围内）：doctor 不再做外部组件健康检查（安装版本/宿主进程/实例数/状态接口/版本一致性等），`--json` 不再输出外部组件健康字段；面板删除两张运行态卡（上下文健康/成本用量）及其只读运行态接口；规则/套件/文档与测试不再引用该组件（历史过程记录保留原文并加注）。
+- `sync-kit.sh`：主管模板 6→7（`handoff.md`），kit 镜像同步；`--check`/`--global` 覆盖。
+- 安装器（`install-supervisor.sh` / `.mjs`）：技能预检与 `SETUP_FILES` 加两个 P0 脚本与第 7 模板（sh 增加「模板数=7」硬断言）；`--with-setup` 安装后可直接 `bash setup/supervisor-doctor.sh` / `supervisor-verify.sh`。
+- `selftest.sh`：模板计数 6→7 全部位置；新增 3 项用例——两脚本 `bash -n`/`--help`/未知参数 exit 2、doctor 真实机只读（`--no-network`）+`--json` 可解析、`supervisor-verify.sh --fast` 集成后全绿（其内部 selftest 步在 `--fast` 下 SKIP，不递归）。
+- `build-dist.sh` / `build-public-repo.sh`：主管模板 6→7、必需文件加 `handoff.md` 与两个 P0 脚本、非空断言。
+- `verify-facts.sh`：预算按用户 2026-11-01 授权放宽 **AGENTS.md ≤13000B**（原 10000）、**SKILL.md ≤38000B**（原 35000），并新增「两 P0 脚本存在且可执行」断言。
+- 公开 README / market-entry 补「环境体检 / 一键验收 / 交接单 + 面板团队与任务卡」一句（不夸大）；`安装说明.md` / `一键安装口令.md` / `朋友测试指南.md` / `主管手册.md` 同步面板四分区布局（当前项目条 + 工作方式区两张全宽卡（模式卡 + 5 行工作开关清单）+ 运行状态团队卡 + 规则自检 + 快捷动作主次 + 首屏可见性口径）与模板/脚本计数；T22 后补分区级折叠行为（默认收起状态与一行摘要、`psup.zone.<zone>` 持久化、默认收起 1196px / -60%）。
+- 面板「自动工作」行内新增缩进次级开关「更经济的自动化」（配置字段 `economicalAutoWork`，默认 `false`、`autoWork` 关闭时置灰）；config 路由 GET/POST 收发的布尔字段集合同步新增该字段。
+- 套件 **1.13.0**、插件 **0.9.0**。
+
+### 验证
+- `bash setup/sync-kit.sh --check` → 全部一致（**45** 个文件）；`bash setup/selftest.sh` → **PASS 24 / FAIL 0**（P0 用例全过）；`bash setup/verify-facts.sh --offline` → **PASS 11 / WARN 0 / FAIL 0**；`bash setup/supervisor-verify.sh` → **PASS 12 / FAIL 0 / SKIP 0**（含 peek-mailbox self-test 10 项）；`bash setup/build-dist.sh` → exit 0（必需文件 **43/43**、主管模板 **7** 个、zip 大小 **685,905B**、sha256 `1c2dd47ecd2c095593f777c63231c99dacc5ddaad5782db9829fecf6e7403ba1`；独立重建 ±20B 因 zip 时间戳与内嵌文档、非产品差异）；`bash setup/build-public-repo.sh` → exit 0（文件数 **102**）；安装器 `--dry-run` + sh/mjs 真实安装（含 `--with-setup`）→ exit 0，安装目录抽检 **7 模板 + 两 P0 脚本**（Lead 已实跑确认）；面板 e2e（临时 DSH 实例 1440×900）：四分区按序、默认收起态整页 **1196px**（旧基线 2957px、上一版全展开 1812px，-60%；全展开约 1500px）、cards 4、switchRows 5、首屏最后一行开关 bottom 770 ≤ 813 / 运行状态标题 top 806、console error 0 / runtime exception 0；本次「更经济的自动化」：e2e 默认收起态整页 **1196px**（cards 4、switchRows 5、bottom 770、top 806）、i18n **214** keys×2、host-smoke **50**、verify **PASS 12 / FAIL 0 / SKIP 0**。e2e 脚本经修复（B1）：运行前备份并临时移走工作区 `.dsh/supervisor.config.json`、`EXIT trap` 无条件恢复，因此**在最终交付状态（economicalAutoWork=true）也可直接复跑**，配置恢复后 sha256 一致。
+
+## [1.12.0] 2026-11-01
+
+### 新增
+- **自动工作（无人值守，默认关）**：配置字段 `autoWork`（默认 `false`，关闭时行为完全不变）；面板新增「自动工作」开关卡片与只读队列状态卡（`GET /plugins/dsh-project-supervisor/auto-work`）；规则写入 `AGENTS.md`（常驻短节）、主管 SKILL（开关读回 / tick 循环 / 停止与收尾 / 安全禁区）与《主管手册》；队列文件 `<工作区>/.dsh/auto-work-queue.md` 固定四节（`## 排队任务` / `## 阻塞` / `## 待回答的问题` / `## 自动工作日志`），模板随主管技能分发（`templates/auto-work-queue.md`）。
+- **只读排队消息脚本**：`skill/scripts/peek-mailbox.mjs`（读会话日志求 `team/message/queued` − `delivered` 差集；Node ≥24 用内置 zstd，回退 python3 zstandard；只读、不改会话状态），随技能目录安装到 `.dsh/skills/project-supervisor/scripts/`。
+- **两个可选补丁目录**（默认不应用、需手动装）：`patches/auto-work-timed-ask`（preset standard 的 ask-user 条目改为 `timed`+短超时）与 `patches/auto-work-permission`（新增「自动工作」权限预设 = workspace-write + 审批 never）；各含 `patch.py`（status/apply/revert/selftest，带 `.bak` 备份、幂等、失败回滚）与 README。
+- 插件 **0.8.0**：开关从四个增至五个（新增 `autoWork`）、新增只读队列状态路由、smoke/host-smoke 断言与插件 README 同步。
+
+### 变更
+- `sync-kit.sh`：主管技能目录新增 `scripts/` 逐字节同步（非空 + 必需脚本断言，缺文件显式失败）；`--check` 漂移与 `--global` 备份覆盖 scripts；主管模板由 5 个增至 6 个（新增 `auto-work-queue.md`）。
+- 安装器（mjs/sh）技能预检与安装断言覆盖第 6 个模板与 `scripts/`；`selftest.sh` 新增：全部 `setup/patches/*/patch.py` 的 `py_compile`、两个自动工作补丁 `selftest`（只读真实安装）、`skill/scripts` 逐字节一致 + `node --check` + 缺文件失败断言、模板计数 5→6、`--check`/`--global` 的 scripts 漂移与备份断言；`build-dist.sh`/`build-public-repo.sh` 必需文件与计数同步（含 `skill/scripts/peek-mailbox.mjs` 与两个补丁目录）。
+- 公开 README 与 market-entry 补充「自动工作（默认关）+ 两个可选补丁」说明（不夸大）；`安装说明.md` / `一键安装口令.md` / `朋友测试指南.md` 同步说明。
+- 套件 1.12.0、插件 0.8.0。
+
+### 验证
+- `bash setup/sync-kit.sh --check` → 全部一致（44 个文件）；`bash setup/selftest.sh` → PASS 21 / FAIL 0（新增「自动工作补丁 selftest」与 py_compile 全补丁、scripts 逐字节/漂移/缺文件断言）；`bash setup/verify-facts.sh --offline` → PASS 9 / WARN 0 / FAIL 0；`bash setup/build-dist.sh` → exit 0（zip + sha256，约 600KB）；`bash setup/build-public-repo.sh` → exit 0（99 个文件）。
+
 ## [1.11.2] 2026-10-31
 
 ### 变更
-- 发布前独立审查修复（报告 14 号不随包）：公开文档清掉内部评审引用与事故报告条目；`build-dist`/`build-public-repo` 排除 `research/1[0-9]-*` 并新增「公开 research 恰 7 文件 + 文档无内部评审引用」硬断言；安装记录 `withResearch/withSetup` 统一布尔；公开快照截图补齐 `panel-model-collab.jpg` 并在 e2e 截图前隐藏第三方 fixed 浮层；client 删除死 i18n 键（`quickRulesWhy`/`rulesPath`）；插件 0.7.3。
+- 发布前独立审查修复（报告 14 号不随包）：公开文档清掉内部评审引用与事故报告条目；`build-dist`/`build-public-repo` 排除 `research/1[0-9]-*` 并新增「公开 research 恰 7 文件 + 文档无内部评审引用」硬断言；安装记录 `withResearch/withSetup` 统一布尔；公开快照截图补齐第 5 张模型协作态图并在 e2e 截图前隐藏第三方 fixed 浮层；client 删除死 i18n 键（`quickRulesWhy`/`rulesPath`）；插件 0.7.3。
 - DECISIONS 补 D55（审查结论与发布记录）。
 
 ### 验证

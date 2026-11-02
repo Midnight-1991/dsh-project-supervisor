@@ -1,7 +1,7 @@
 # Security Policy
 
-This is a **Beta / under-test** project. Please do not use it in security-critical
-environments without your own review.
+This is a **stable (v1.0.0)** project. Please review the code yourself before using
+it in security-critical environments.
 
 ## Reporting a vulnerability
 

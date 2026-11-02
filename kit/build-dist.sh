@@ -218,6 +218,9 @@ REQUIRED_FILES=(
   skill/templates/ledger.md
   skill/templates/review-gate.md
   skill/templates/wake-brief.md
+  skill/templates/auto-work-queue.md
+  skill/templates/handoff.md
+  skill/scripts/peek-mailbox.mjs
   team-roster.template.md
   team-ledger.template.md
   skill-improving-prompts/SKILL.md
@@ -229,7 +232,13 @@ REQUIRED_FILES=(
   一键安装口令.md
   朋友测试指南.md
   THIRD_PARTY_NOTICES.md
+  supervisor-doctor.sh
+  supervisor-verify.sh
   patches/team-permissions/patch.py
+  patches/auto-work-timed-ask/patch.py
+  patches/auto-work-timed-ask/README.md
+  patches/auto-work-permission/patch.py
+  patches/auto-work-permission/README.md
   research/README.md
   LICENSE
   plugin/dsh-project-supervisor/package.json
@@ -245,11 +254,24 @@ for rel in "${REQUIRED_FILES[@]}"; do
   VERIFIED=$((VERIFIED + 1))
 done
 
-# 主管技能目录：templates/ 四个工作流模板齐全且非空（随技能目录分发）
+# 主管技能目录：templates/ 七个模板齐全且非空（随技能目录分发）
 SUP_TPL_COUNT="$(find "$PKG_VERIFY/skill/templates" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')"
-[ "$SUP_TPL_COUNT" = "5" ] || die "zip 内 skill/templates 应为 5 个 .md，实际 $SUP_TPL_COUNT"
-for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+[ "$SUP_TPL_COUNT" = "7" ] || die "zip 内 skill/templates 应为 7 个 .md，实际 $SUP_TPL_COUNT"
+for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
   [ -s "$PKG_VERIFY/skill/templates/$tpl" ] || die "zip 内 skill/templates/$tpl 缺失或为空"
+done
+# 主管技能 scripts/：只读脚本随技能目录分发且非空
+SUP_SCRIPT_COUNT="$(find "$PKG_VERIFY/skill/scripts" -maxdepth 1 -type f -name '*.mjs' | wc -l | tr -d ' ')"
+[ "$SUP_SCRIPT_COUNT" -ge 1 ] || die "zip 内 skill/scripts 应至少 1 个 .mjs，实际 $SUP_SCRIPT_COUNT"
+[ -s "$PKG_VERIFY/skill/scripts/peek-mailbox.mjs" ] || die "zip 内 skill/scripts/peek-mailbox.mjs 缺失或为空"
+# 可选补丁目录：两个自动工作补丁的 patch.py + README 都非空
+for pf in auto-work-timed-ask auto-work-permission; do
+  [ -s "$PKG_VERIFY/patches/$pf/patch.py" ] || die "zip 内 patches/$pf/patch.py 缺失或为空"
+  [ -s "$PKG_VERIFY/patches/$pf/README.md" ] || die "zip 内 patches/$pf/README.md 缺失或为空"
+done
+# P0 脚本：体检与一键验收随套件分发且非空
+for p0 in supervisor-doctor.sh supervisor-verify.sh; do
+  [ -s "$PKG_VERIFY/$p0" ] || die "zip 内 $p0 缺失或为空"
 done
 
 # 完整技能目录：LICENSE + 14 个 references + 2 个 templates
@@ -264,7 +286,7 @@ grep -q 'sha256' "$PKG_VERIFY/朋友测试指南.md" || die "朋友测试指南.
 grep -q '卸载' "$PKG_VERIFY/朋友测试指南.md" || die "朋友测试指南.md 缺少卸载步骤"
 grep -q 'Copyright (c) 2026 dsh-project-supervisor contributors' "$PKG_VERIFY/plugin/dsh-project-supervisor/LICENSE" || die "插件 LICENSE 版权行应为 workspace"
 if grep -q 'workpsace' "$PKG_VERIFY/plugin/dsh-project-supervisor/LICENSE"; then die "插件 LICENSE 仍有 workpsace 拼写错误"; fi
-echo "  校验:   zip 可解压，必需文件 $VERIFIED/${#REQUIRED_FILES[@]} 通过；主管模板 $SUP_TPL_COUNT 个、references $REF_COUNT 个、templates $TPL_COUNT 个；合规检查通过"
+echo "  校验:   zip 可解压，必需文件 $VERIFIED/${#REQUIRED_FILES[@]} 通过；主管模板 $SUP_TPL_COUNT 个、主管脚本 $SUP_SCRIPT_COUNT 个、references $REF_COUNT 个、templates $TPL_COUNT 个；合规检查通过"
 
 # 5) 汇总
 SIZE="$(wc -c < "$ZIP_PATH" | tr -d ' ')"

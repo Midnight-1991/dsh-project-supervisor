@@ -4,16 +4,19 @@
 #
 # 覆盖：
 #   1. bash -n 全部 setup shell 脚本
-#   2. python3 -m py_compile patch.py（字节码写临时目录）
+#   2. python3 -m py_compile 全部 setup/patches/*/patch.py（字节码写临时目录）
 #   3. 临时副本工作区：sync-kit 同步（含主管技能目录与 improving-prompts 完整目录）→ 再同步幂等
-#      → --check exit 0 + 转换断言 + 主管技能模板/references/templates/LICENSE 逐字节一致
+#      → --check exit 0 + 转换断言 + 主管技能模板/scripts/references/templates/LICENSE 逐字节一致
 #   4. 临时副本工作区：sync-kit --global（临时 DSH_HOME，完整技能目录 + 逐文件 .bak 备份）
 #   5. 安装 a：全新目录（含主管技能目录 templates/ 与完整 improving-prompts 技能目录）
 #   6. 安装 b：已有 AGENTS.md 不覆盖、生成 AGENTS.supervisor.md
 #   7. 安装 c：--with-research --global-skill（含 6 份调研资料 + 完整技能目录）
 #   8. 安装 d：重复安装幂等（第二次文件哈希不变）
-#   9. python3 patch.py selftest（只读真实 DSH 安装，安全）
-#  10. build-dist --out 临时目录（zip 可解压 + sha256 校验 + 清点 references/templates/合规文件）
+#   9. python3 patch.py selftest（只读真实 DSH 安装，安全；team-permissions + 两个自动工作补丁）
+#   9b. supervisor-doctor.sh / supervisor-verify.sh：bash -n、--help、用法错误 exit 2、
+#       doctor 真实机只读（--no-network，允许 FAIL）+ --json 可解析
+#   9c. supervisor-verify.sh --fast：集成后全绿（其内部 selftest 步在 --fast 下 SKIP，不递归）
+#  10. build-dist --out 临时目录（zip 可解压 + sha256 校验 + 清点 7 模板/scripts/references/补丁/两 P0 脚本/合规文件）
 #  11. 可选 UI 插件：client/host 语法 + 离线 smoke（注册断言 + 开关 endpoint 断言）
 #  12. 兼容性/崩溃安全：Windows 路径逻辑模拟 + apply/HTTP 容错 + 双平台 Node 安装脚本
 #  13. 安装器 dry-run：kit 两个安装器只预检/出计划，目标与 DSH_HOME 零写入
@@ -82,8 +85,15 @@ check_bash_syntax() {
 
 # ---- 2) patch.py 语法检查 ---------------------------------------------------
 check_pycompile() {
-  PYTHONPYCACHEPREFIX="$TMP/pycache" python3 -m py_compile \
-    "$SCRIPT_DIR/patches/team-permissions/patch.py"
+  local f n=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    PYTHONPYCACHEPREFIX="$TMP/pycache" python3 -m py_compile "$f" || return 1
+    n=$((n + 1))
+  done < <(find "$SCRIPT_DIR/patches" -type f -name 'patch.py' -print | LC_ALL=C sort)
+  # 至少三个补丁：team-permissions + auto-work-timed-ask + auto-work-permission
+  [ "$n" -ge 3 ] || return 1
+  return 0
 }
 
 # ---- 3) 临时副本工作区：sync 后 --check 必须一致 ---------------------------
@@ -92,7 +102,7 @@ prepare_workspace() { # $1=临时工作区目录（复制源文件 + setup/）
   mkdir -p "$ws/.dsh/skills/project-supervisor" || return 1
   cp "$ROOT/AGENTS.md" "$ws/AGENTS.md" || return 1
   cp "$ROOT/主管手册.md" "$ws/主管手册.md" || return 1
-  # 主管技能是完整技能目录：SKILL.md + templates/（plan/task-brief/ledger/review-gate）
+  # 主管技能是完整技能目录：SKILL.md + templates/（七个模板）+ scripts/（只读脚本）
   cp -R "$ROOT/.dsh/skills/project-supervisor/." "$ws/.dsh/skills/project-supervisor/" || return 1
   # improving-prompts 是完整技能目录：SKILL.md + LICENSE + references/ + templates/
   cp -R "$ROOT/.dsh/skills/improving-prompts" \
@@ -112,10 +122,12 @@ check_sync_temp() {
   cp "$ROOT/主管手册.md" "$ws/setup/主管手册.md" || return 1
   cp "$ROOT/.dsh/skills/project-supervisor/SKILL.md" "$ws/setup/skill/SKILL.md" || return 1
   mkdir -p "$ws/setup/skill/templates" || return 1
-  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
     printf '\n<!-- drift -->\n' >>"$ws/setup/skill/templates/$tpl" || return 1
   done
   printf '# kit 中多余文件应被同步删除\n' >"$ws/setup/skill/templates/stale-extra.md" || return 1
+  printf '\n// drift\n' >>"$ws/setup/skill/scripts/peek-mailbox.mjs" || return 1
+  printf '# kit 中多余脚本应被同步删除\n' >"$ws/setup/skill/scripts/stale-extra.mjs" || return 1
   cp "$ROOT/.dsh/skills/improving-prompts/SKILL.md" "$ws/setup/skill-improving-prompts/SKILL.md" || return 1
   printf '\n<!-- drift -->\n' >>"$ws/setup/skill-improving-prompts/references/diagnosis.md" || return 1
   printf '# kit 中多余文件应被同步删除\n' >"$ws/setup/skill-improving-prompts/references/stale-extra.md" || return 1
@@ -139,16 +151,30 @@ check_sync_temp() {
   grep -q '^  workspace: "\*"$' "$ws/setup/skill/SKILL.md" || return 1
   grep -q 'promptPolish' "$ws/setup/skill-improving-prompts/SKILL.md" || return 1
   grep -q '^已删除.*stale-extra.md' "$LOG_DIR/sync-first.log" || return 1
-  # 主管技能目录：kit 含 templates/ 五个模板、非空、与源逐字节一致；多余模板文件已删除
+  # 主管技能目录：kit 含 templates/ 七个模板、非空、与源逐字节一致；多余模板文件已删除
   [ -d "$ws/setup/skill/templates" ] || return 1
-  [ "$(find "$ws/setup/skill/templates" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "5" ] || return 1
-  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+  [ "$(find "$ws/setup/skill/templates" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "7" ] || return 1
+  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
     [ -s "$ws/setup/skill/templates/$tpl" ] || return 1
     cmp -s "$ROOT/.dsh/skills/project-supervisor/templates/$tpl" \
       "$ws/setup/skill/templates/$tpl" || return 1
   done
   [ ! -e "$ws/setup/skill/templates/stale-extra.md" ] || return 1
   grep -q '^已删除.*skill/templates/stale-extra.md' "$LOG_DIR/sync-first.log" || return 1
+  # 主管技能 scripts/：kit 含只读脚本、非空、与源逐字节一致；多余脚本已删除
+  [ -f "$ws/setup/skill/scripts/peek-mailbox.mjs" ] || return 1
+  [ -s "$ws/setup/skill/scripts/peek-mailbox.mjs" ] || return 1
+  cmp -s "$ROOT/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" \
+    "$ws/setup/skill/scripts/peek-mailbox.mjs" || return 1
+  node --check "$ws/setup/skill/scripts/peek-mailbox.mjs" || return 1
+  [ ! -e "$ws/setup/skill/scripts/stale-extra.mjs" ] || return 1
+  grep -q '^已删除.*skill/scripts/stale-extra.mjs' "$LOG_DIR/sync-first.log" || return 1
+  # 缺文件必须显式失败（不得静默跳过 scripts）
+  mv "$ws/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" "$TMP/peek-mailbox.moved.mjs" || return 1
+  if bash "$ws/setup/sync-kit.sh" >"$LOG_DIR/sync-missing-script.log" 2>&1; then return 1; fi
+  grep -q 'scripts 缺少必需脚本' "$LOG_DIR/sync-missing-script.log" || return 1
+  mv "$TMP/peek-mailbox.moved.mjs" "$ws/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" || return 1
+  bash "$ws/setup/sync-kit.sh" >/dev/null 2>&1 || return 1
   # 完整技能目录：LICENSE + references/（14）+ templates/（2）逐字节一致，多余文件已删除
   [ -f "$ws/setup/skill-improving-prompts/LICENSE" ] || return 1
   cmp -s "$ROOT/.dsh/skills/improving-prompts/LICENSE" \
@@ -168,6 +194,11 @@ check_sync_temp() {
   printf '\n<!-- drift -->\n' >>"$ws/setup/skill/templates/plan.md" || return 1
   if bash "$ws/setup/sync-kit.sh" --check >"$LOG_DIR/sync-check-template-drift.log" 2>&1; then return 1; fi
   grep -q '^漂移    setup/skill/templates/plan.md' "$LOG_DIR/sync-check-template-drift.log" || return 1
+  bash "$ws/setup/sync-kit.sh" >/dev/null 2>&1 || return 1
+  # --check 必须覆盖主管技能 scripts：制造脚本漂移 → exit 1 且报「漂移」，同步后恢复一致
+  printf '\n// drift\n' >>"$ws/setup/skill/scripts/peek-mailbox.mjs" || return 1
+  if bash "$ws/setup/sync-kit.sh" --check >"$LOG_DIR/sync-check-script-drift.log" 2>&1; then return 1; fi
+  grep -q '^漂移    setup/skill/scripts/peek-mailbox.mjs' "$LOG_DIR/sync-check-script-drift.log" || return 1
   bash "$ws/setup/sync-kit.sh" >/dev/null 2>&1 || return 1
   bash "$ws/setup/sync-kit.sh" --check >"$LOG_DIR/sync-check.log" 2>&1 || return 1
   grep -q '结果: 全部一致' "$LOG_DIR/sync-check.log" || return 1
@@ -196,14 +227,18 @@ check_sync_global() {
   grep -q '^  workspace: "\*"$' "$g" || return 1
   grep -q 'promptPolish' "$gp" || return 1
 
-  # 全局主管技能是完整目录：templates/ 五个模板非空且与源逐字节一致
+  # 全局主管技能是完整目录：templates/ 七个模板 + scripts/ 非空且与源逐字节一致
   tpldir="$dsh/skills/project-supervisor/templates"
   [ -d "$tpldir" ] || return 1
-  [ "$(find "$tpldir" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "5" ] || return 1
-  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+  [ "$(find "$tpldir" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "7" ] || return 1
+  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
     [ -s "$tpldir/$tpl" ] || return 1
     cmp -s "$ROOT/.dsh/skills/project-supervisor/templates/$tpl" "$tpldir/$tpl" || return 1
   done
+  [ -f "$dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" ] || return 1
+  cmp -s "$ROOT/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" \
+    "$dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" || return 1
+  node --check "$dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" || return 1
 
   # 全局 improving-prompts 是完整目录：LICENSE + references（14）+ templates（2）
   [ -f "$dsh/skills/improving-prompts/LICENSE" ] || return 1
@@ -232,6 +267,13 @@ check_sync_global() {
   ls "$dsh/skills/project-supervisor/templates"/plan.md.bak.* >/dev/null 2>&1 || return 1
   cmp -s "$ROOT/.dsh/skills/project-supervisor/templates/plan.md" \
     "$dsh/skills/project-supervisor/templates/plan.md" || return 1
+
+  # 全局技能 scripts 同样先备份再覆盖
+  printf '// old global script\n' >"$dsh/skills/project-supervisor/scripts/peek-mailbox.mjs"
+  DSH_HOME="$dsh" bash "$ws/setup/sync-kit.sh" --global >"$LOG_DIR/global-backup-script.log" 2>&1 || return 1
+  ls "$dsh/skills/project-supervisor/scripts"/peek-mailbox.mjs.bak.* >/dev/null 2>&1 || return 1
+  cmp -s "$ROOT/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" \
+    "$dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" || return 1
 
   # improving-prompts 全局技能同样要先备份再覆盖（SKILL.md + references/ 逐文件）
   printf '# old global polish skill\n' >"$gp"
@@ -269,12 +311,16 @@ check_install_fresh() {
   grep -q 'Igor Wnek' "$ws/.dsh/skills/improving-prompts/LICENSE" || return 1
   grep -q 'promptPolish' "$ws/.dsh/skills/improving-prompts/SKILL.md" || return 1
   [ "$(find "$ws/.dsh/skills/improving-prompts/references" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "14" ] || return 1
-  # 主管技能目录：templates/ 五个模板非空，且与 kit 逐字节一致
+  # 主管技能目录：templates/ 七个模板非空，且与 kit 逐字节一致；scripts/ 只读脚本齐全
   [ -d "$ws/.dsh/skills/project-supervisor/templates" ] || return 1
-  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
     [ -s "$ws/.dsh/skills/project-supervisor/templates/$tpl" ] || return 1
   done
   diff -r "$SCRIPT_DIR/skill/templates" "$ws/.dsh/skills/project-supervisor/templates" >/dev/null || return 1
+  [ -f "$ws/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" ] || return 1
+  cmp -s "$SCRIPT_DIR/skill/scripts/peek-mailbox.mjs" \
+    "$ws/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" || return 1
+  node --check "$ws/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" || return 1
   [ -f "$ws/patches/team-permissions/patch.py" ] || return 1
   grep -qF "workspace: \"$ws\"" "$ws/.dsh/skills/project-supervisor/SKILL.md" || return 1
   grep -q '项目主管' "$ws/AGENTS.md" || return 1
@@ -316,11 +362,13 @@ check_install_with_research_global() {
   [ "$(find "$ws/.dsh/skills/improving-prompts/references" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "14" ] || return 1
   [ "$(find "$dsh/skills/improving-prompts/references" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "14" ] || return 1
   grep -qF "workspace: \"$ws\"" "$ws/.dsh/skills/project-supervisor/SKILL.md" || return 1
-  # 目标工作区与全局技能目录都含非空 templates/ 五个模板
-  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+  # 目标工作区与全局技能目录都含非空 templates/ 七个模板 + scripts/ 只读脚本
+  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
     [ -s "$ws/.dsh/skills/project-supervisor/templates/$tpl" ] || return 1
     [ -s "$dsh/skills/project-supervisor/templates/$tpl" ] || return 1
   done
+  [ -f "$ws/.dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" ] || return 1
+  [ -f "$dsh/skills/project-supervisor/scripts/peek-mailbox.mjs" ] || return 1
   return 0
 }
 
@@ -347,6 +395,63 @@ check_patch_selftest() {
   python3 "$SCRIPT_DIR/patches/team-permissions/patch.py" selftest
 }
 
+# ---- 9b) 自动工作可选补丁自测（只读真实 DSH 安装，不 apply） -----------------
+check_auto_work_patch_selftests() {
+  python3 "$SCRIPT_DIR/patches/auto-work-timed-ask/patch.py" selftest || return 1
+  python3 "$SCRIPT_DIR/patches/auto-work-permission/patch.py" selftest || return 1
+  return 0
+}
+
+# ---- 9a) P0 脚本：语法 / --help / 用法错误 exit 2 ---------------------------
+check_supervisor_scripts_syntax() {
+  local d="$SCRIPT_DIR/supervisor-doctor.sh" v="$SCRIPT_DIR/supervisor-verify.sh"
+  [ -f "$d" ] || { echo "缺少 supervisor-doctor.sh" >&2; return 1; }
+  [ -f "$v" ] || { echo "缺少 supervisor-verify.sh" >&2; return 1; }
+  bash -n "$d" || return 1
+  bash -n "$v" || return 1
+  bash "$d" -h >"$LOG_DIR/doctor-help.log" 2>&1 || return 1
+  grep -q '用法' "$LOG_DIR/doctor-help.log" || return 1
+  bash "$v" -h >"$LOG_DIR/verify-help.log" 2>&1 || return 1
+  grep -q '用法' "$LOG_DIR/verify-help.log" || return 1
+  if bash "$d" --bogus >/dev/null 2>&1; then echo "doctor 未知参数应 exit 2" >&2; return 1; fi
+  if bash "$v" --bogus >/dev/null 2>&1; then echo "verify 未知参数应 exit 2" >&2; return 1; fi
+  return 0
+}
+
+# ---- 9b) P0 脚本：doctor 真实机只读运行 + --json 可解析 ----------------------
+check_doctor_real() {
+  local out="$LOG_DIR/doctor-real.log" json="$LOG_DIR/doctor-real.json" rc=0
+  bash "$SCRIPT_DIR/supervisor-doctor.sh" --no-network --workspace "$ROOT" >"$out" 2>&1 || rc=$?
+  # 真实机允许 0（无 FAIL）或 1（有 FAIL）——体检脚本本身不能崩（>=2）
+  [ "$rc" -le 1 ] || { echo "doctor 异常退出 rc=$rc" >&2; tail -n 8 "$out" >&2; return 1; }
+  grep -q '^汇总: PASS ' "$out" || { echo "doctor 输出缺汇总行" >&2; tail -n 8 "$out" >&2; return 1; }
+  bash "$SCRIPT_DIR/supervisor-doctor.sh" --no-network --json --workspace "$ROOT" >"$json" 2>&1 || true
+  node -e '
+    const j = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+    if (!Array.isArray(j.checks) || j.checks.length < 10) throw new Error("checks 不足");
+    if (!j.summary || typeof j.summary.fail !== "number") throw new Error("summary 缺失");
+    for (const k of ["id", "status", "name", "evidence"]) {
+      if (typeof j.checks[0][k] === "undefined") throw new Error("check 字段缺失: " + k);
+    }
+  ' "$json" || return 1
+  return 0
+}
+
+# ---- 9c) P0 脚本：verify --fast 集成后全绿（不递归 selftest） ----------------
+check_verify_fast() {
+  local out="$LOG_DIR/verify-fast.log" rc=0
+  bash "$SCRIPT_DIR/supervisor-verify.sh" --fast >"$out" 2>&1 || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "verify --fast exit $rc：" >&2
+    tail -n 10 "$out" >&2
+    return 1
+  fi
+  grep -q '^汇总: PASS ' "$out" || { echo "verify 输出缺汇总行" >&2; return 1; }
+  grep -q 'SKIP' "$out" || { echo "verify --fast 应含 SKIP（selftest 步）" >&2; return 1; }
+  grep -q 'setup/selftest.sh（安装包全量回归）' "$out" || { echo "verify 未标 selftest 步" >&2; return 1; }
+  return 0
+}
+
 # ---- 10) 打包校验 ----------------------------------------------------------
 check_build() {
   local out="$TMP/dist" zip="$TMP/dist/project-supervisor-kit-2026-10-24.zip"
@@ -371,6 +476,10 @@ skill/templates/plan.md
 skill/templates/task-brief.md
 skill/templates/ledger.md
 skill/templates/review-gate.md
+skill/templates/wake-brief.md
+skill/templates/auto-work-queue.md
+skill/templates/handoff.md
+skill/scripts/peek-mailbox.mjs
 skill-improving-prompts/SKILL.md
 skill-improving-prompts/LICENSE
 skill-improving-prompts/references/diagnosis.md
@@ -379,9 +488,15 @@ skill-improving-prompts/templates/prompt-skeleton.md
 朋友测试指南.md
 THIRD_PARTY_NOTICES.md
 patches/team-permissions/patch.py
+patches/auto-work-timed-ask/patch.py
+patches/auto-work-timed-ask/README.md
+patches/auto-work-permission/patch.py
+patches/auto-work-permission/README.md
 research/README.md
 LICENSE
 安装说明.md
+supervisor-doctor.sh
+supervisor-verify.sh
 plugin/dsh-project-supervisor/package.json
 plugin/dsh-project-supervisor/install-plugin.sh
 plugin/dsh-project-supervisor/client.js
@@ -390,11 +505,17 @@ EOF
   # 完整技能目录数量与合规文件内容
   [ "$(find "$pkg/skill-improving-prompts/references" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "14" ] || return 1
   [ "$(find "$pkg/skill-improving-prompts/templates" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "2" ] || return 1
-  # 主管技能目录：templates/ 五个模板齐全且非空
-  [ "$(find "$pkg/skill/templates" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "5" ] || return 1
-  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md; do
+  # 主管技能目录：templates/ 七个模板 + scripts/ 只读脚本齐全且非空
+  [ "$(find "$pkg/skill/templates" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = "7" ] || return 1
+  for tpl in plan.md task-brief.md ledger.md review-gate.md wake-brief.md auto-work-queue.md handoff.md; do
     [ -s "$pkg/skill/templates/$tpl" ] || return 1
   done
+  [ -s "$pkg/skill/scripts/peek-mailbox.mjs" ] || return 1
+  [ -s "$pkg/skill/templates/handoff.md" ] || return 1
+  [ -s "$pkg/supervisor-doctor.sh" ] || return 1
+  [ -s "$pkg/supervisor-verify.sh" ] || return 1
+  [ -s "$pkg/patches/auto-work-timed-ask/patch.py" ] || return 1
+  [ -s "$pkg/patches/auto-work-permission/patch.py" ] || return 1
   grep -q 'Igor Wnek' "$pkg/skill-improving-prompts/LICENSE" || return 1
   grep -q 'Igor Wnek' "$pkg/THIRD_PARTY_NOTICES.md" || return 1
   grep -q 'MIT License' "$pkg/THIRD_PARTY_NOTICES.md" || return 1
@@ -539,6 +660,8 @@ check_install_with_setup() {
   [ -f "$ws/setup/selftest.sh" ] || return 1
   [ -f "$ws/setup/verify-facts.sh" ] || return 1
   [ -f "$ws/setup/build-dist.sh" ] || return 1
+  [ -f "$ws/setup/supervisor-doctor.sh" ] || return 1
+  [ -f "$ws/setup/supervisor-verify.sh" ] || return 1
   [ -f "$ws/setup/一键安装口令.md" ] || return 1
   grep -q '"withSetup": true' "$ws/.dsh/supervisor-kit.json" || return 1
   grep -q '"withResearch": true' "$ws/.dsh/supervisor-kit.json" || return 1
@@ -553,7 +676,7 @@ check_install_with_setup() {
 echo "== 安装包自测（临时目录: ${TMP}）=="
 
 run_check "bash -n 全部 shell 脚本"    bash-syntax    check_bash_syntax
-run_check "python3 -m py_compile patch.py" pycompile  check_pycompile
+run_check "python3 -m py_compile 全部 patch.py" pycompile  check_pycompile
 run_check "临时副本：sync 同步幂等 + --check 一致 + 完整技能目录" sync-kit  check_sync_temp
 run_check "临时副本：sync --global（完整目录）与 .bak 备份"    sync-global   check_sync_global
 run_check "安装 a：全新目录（规则+完整技能+手册+补丁）" install-fresh   check_install_fresh
@@ -561,6 +684,10 @@ run_check "安装 b：已有 AGENTS.md 不覆盖并生成 AGENTS.supervisor.md" 
 run_check "安装 c：--with-research --global-skill（含完整技能目录）"  install-full  check_install_with_research_global
 run_check "安装 d：重复安装幂等（文件哈希不变）"    install-repeat check_install_idempotent
 run_check "python3 patch.py selftest（只读真实安装）" patch-selftest check_patch_selftest
+run_check "自动工作补丁 selftest（timed-ask / permission，只读）" patch-selftest-auto-work check_auto_work_patch_selftests
+run_check "P0 脚本：bash -n / --help / 用法错误 exit 2" scripts-syntax check_supervisor_scripts_syntax
+run_check "P0 脚本：doctor 真实机只读 + --json 可解析" doctor-real check_doctor_real
+run_check "P0 脚本：verify --fast 集成后全绿（不递归）" verify-fast check_verify_fast
 run_check "build-dist：zip + sha256 + 必需文件/references/合规抽查"  build-dist    check_build
 run_check "可选 UI 插件：client/host 语法 + smoke + 开关 endpoint" plugin check_plugin
 run_check "兼容性：Windows 路径模拟 + 崩溃安全 + Node 安装脚本" compat check_compat

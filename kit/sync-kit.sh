@@ -22,7 +22,8 @@
 #       · 工程化维护里的 `cd setup ...` → `cd "$(dirname "$0")"   # 解压根目录`
 #   .dsh/skills/project-supervisor/           → setup/skill/
 #       · SKILL.md 转换 metadata.workspace → "*"（技能元数据指向任意工作区）
-#       · templates/ 逐字节复制（plan / task-brief / ledger / review-gate 四个模板）
+#       · templates/ 逐字节复制（plan / task-brief / ledger / review-gate / wake-brief / auto-work-queue / handoff 七个模板）
+#       · scripts/ 逐字节复制（peek-mailbox.mjs：只读查看排队中的 Team 消息）
 #       · --check 逐文件比对，并检测 kit 中多余文件（正常同步会删除）
 #   .dsh/skills/improving-prompts/          → setup/skill-improving-prompts/
 #       · SKILL.md 逐字节复制（技能本体，无工作区元数据）
@@ -85,10 +86,12 @@ AGENTS_TAIL = (
 KIT_LINE = "KIT=<解压后的 project-supervisor-kit 目录>"
 MANUAL_CD = 'cd "$(dirname "$0")"   # 解压根目录'
 
-# 主管技能：源目录与 kit 副本都是完整技能目录（SKILL.md + templates/ 四个工作流模板）
+# 主管技能：源目录与 kit 副本都是完整技能目录（SKILL.md + templates/ 七个模板 + scripts/ 只读脚本）
 SUPERVISOR_SRC_REL = ".dsh/skills/project-supervisor"
 SUPERVISOR_KIT_REL = "setup/skill"
-SUPERVISOR_TEMPLATES = ("plan.md", "task-brief.md", "ledger.md", "review-gate.md")
+SUPERVISOR_TEMPLATES = ("plan.md", "task-brief.md", "ledger.md", "review-gate.md",
+                        "wake-brief.md", "auto-work-queue.md", "handoff.md")
+SUPERVISOR_SCRIPTS = ("peek-mailbox.mjs",)
 
 # 提示词润色技能：源目录与 kit 副本都是完整技能目录（SKILL.md + LICENSE + references/ + templates/）
 POLISH_SRC_REL = ".dsh/skills/improving-prompts"
@@ -318,7 +321,7 @@ def sync_global_polish():
 
 
 def supervisor_payloads():
-    """返回主管技能目录的 {相对路径: 目标字节}：SKILL.md 走转换，templates/ 逐字节复制。"""
+    """返回主管技能目录的 {相对路径: 目标字节}：SKILL.md 走转换，templates/ 与 scripts/ 逐字节复制。"""
     src = root / SUPERVISOR_SRC_REL
     if not src.is_dir():
         die("找不到主管技能目录: " + SUPERVISOR_SRC_REL)
@@ -338,6 +341,19 @@ def supervisor_payloads():
         rel = "templates/" + p.relative_to(tpl_dir).as_posix()
         data = p.read_bytes()
         assert data.strip(), "主管技能模板为空: " + rel
+        payloads[rel] = data
+    scr_dir = src / "scripts"
+    if not scr_dir.is_dir():
+        die("找不到主管技能脚本目录: " + SUPERVISOR_SRC_REL + "/scripts（peek-mailbox 只读脚本）")
+    scripts = sorted(p for p in scr_dir.rglob("*") if p.is_file())
+    script_names = [p.relative_to(scr_dir).as_posix() for p in scripts]
+    missing_scripts = [name for name in SUPERVISOR_SCRIPTS if name not in script_names]
+    if missing_scripts:
+        die("scripts 缺少必需脚本: " + ", ".join(missing_scripts))
+    for p in scripts:
+        rel = "scripts/" + p.relative_to(scr_dir).as_posix()
+        data = p.read_bytes()
+        assert data.strip(), "主管技能脚本为空: " + rel
         payloads[rel] = data
     return payloads
 
@@ -403,7 +419,7 @@ def sync_supervisor_tree():
 
 
 def sync_global_supervisor():
-    """把主管技能目录（SKILL.md + templates/）同步到 $DSH_HOME/skills/project-supervisor/，逐文件备份。"""
+    """把主管技能目录（SKILL.md + templates/ + scripts/）同步到 $DSH_HOME/skills/project-supervisor/，逐文件备份。"""
     payloads = supervisor_payloads()
     dst_dir = ds_home / "skills/project-supervisor"
     stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -513,7 +529,7 @@ def main():
             die("源文件缺失: " + src_rel)
         process(dst_rel, fn(src.read_text(encoding="utf-8")), src_rel)
 
-    # 主管技能：整目录（SKILL.md 转换 workspace + templates/ 四个模板逐字节复制）
+    # 主管技能：整目录（SKILL.md 转换 workspace + templates/ 七个模板与 scripts/ 逐字节复制）
     sync_supervisor_tree()
 
     # 提示词润色技能：整目录（SKILL.md + LICENSE + references/ + templates/）

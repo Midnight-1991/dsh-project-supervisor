@@ -36,7 +36,7 @@ for f in index.js client.js cordis.patch.yml package.json install-plugin.sh inst
 done
 cp "$PLUGIN"/scripts/*.mjs "$OUT/scripts/" 2>/dev/null || true
 # 截图：市场与 README 用；带 5 张最新 JPEG
-for f in panel.jpg panel-bottom.jpg panel-mode-strict.jpg panel-interview-off.jpg panel-model-collab.jpg; do
+for f in panel.jpg panel-middle.jpg panel-bottom.jpg panel-mode-strict.jpg panel-interview-off.jpg; do
   [ -f "$PLUGIN/screenshots/$f" ] && cp "$PLUGIN/screenshots/$f" "$OUT/screenshots/$f"
 done
 cp "$SETUP/public/README.md" "$OUT/README.md"
@@ -47,10 +47,10 @@ done
 cat > "$OUT/screenshots.json" <<'SHOTS'
 [
   "screenshots/panel.jpg",
+  "screenshots/panel-middle.jpg",
   "screenshots/panel-bottom.jpg",
   "screenshots/panel-mode-strict.jpg",
-  "screenshots/panel-interview-off.jpg",
-  "screenshots/panel-model-collab.jpg"
+  "screenshots/panel-interview-off.jpg"
 ]
 SHOTS
 
@@ -63,6 +63,7 @@ KIT_FILES=(
   AGENTS.supervisor.md 主管手册.md DECISIONS.template.md
   VERSION CHANGELOG.md 安装说明.md 朋友测试指南.md 一键安装口令.md
   sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh
+  supervisor-doctor.sh supervisor-verify.sh
   team-roster.template.md team-ledger.template.md
   LICENSE THIRD_PARTY_NOTICES.md
 )
@@ -96,13 +97,13 @@ cp "$PLUGIN/package.json" "$OUT/kit/plugin/dsh-project-supervisor/package.json"
 
 [ -d "$SETUP/public/.github" ] && cp -R "$SETUP/public/.github" "$OUT/.github"
 
-# ---- 3) package.json：公开仓库元数据 + beta 标记 ---------------------------
+# ---- 3) package.json：公开仓库元数据 + 正式版标记 ---------------------------
 python3 - "$OUT/package.json" <<'PY'
 import json, os, sys
 path = sys.argv[1]
 with open(path, encoding='utf-8') as f:
     p = json.load(f)
-p['description'] = ('Beta / under test. Project supervisor panel for DeepSeek Harness: '
+p['description'] = ('Project supervisor panel for DeepSeek Harness: '
                     'a read-only dashboard that checks a workspace against the supervisor kit\'s '
                     'engineering baseline, shows the supervisor workflow and beginner safeguards, '
                     'and copies ready-to-use kickoff commands.')
@@ -128,7 +129,7 @@ if os.path.exists(kit_pkg):
     with open(kit_pkg, 'w', encoding='utf-8') as f:
         json.dump(q, f, ensure_ascii=False, indent=2)
         f.write('\n')
-print('  已写入公开包元数据（beta 描述 / repository / engines / kit 副本清单）')
+print('  已写入公开包元数据（正式版描述 / repository / engines / kit 副本清单）')
 PY
 
 # ---- 4) 脱敏 + 断言 -------------------------------------------------------
@@ -154,9 +155,12 @@ repls = [
     ('<redacted>', '<redacted>'),
     ('<redacted>', '<redacted>'),
     ('邮箱', '邮箱'),
-    ('ghp_<redacted>', 'ghp_<redacted>'),
+    ('ghp_[A-Za-z0-9]{20,}', 'ghp_<redacted>'),
     ('githubPat_<redacted>', 'githubPat_<redacted>'),
-    ('sk-<redacted>', 'sk-<redacted>'),
+    ('sk-[A-Za-z0-9]{20,}', 'sk-<redacted>'),
+    ('AKIA[0-9A-Z]{16}', 'AKIA<redacted>'),
+    ('xox[bap]-[A-Za-z0-9-]{10,}', 'xox-<redacted>'),
+    ('AIza[0-9A-Za-z_-]{35}', 'AIza<redacted>'),
     ('<AUTH_TOKEN_FIELD>', '<AUTH_TOKEN_FIELD>'),
     ('<user>', '<user>'),
 ]
@@ -170,8 +174,13 @@ for p in out.rglob('*'):
     except UnicodeDecodeError:
         continue
     t = s
+    import re
     for old, new in repls:
-        t = t.replace(old, new)
+        # 含正则元字符的条目按正则替换（如 sk-/ghp_ 模式），其余按字面量替换
+        if '[' in old or '{' in old:
+            t = re.sub(old, new, t)
+        else:
+            t = t.replace(old, new)
     if t != s:
         p.write_text(t, encoding='utf-8')
         changed += 1
@@ -182,7 +191,7 @@ echo '--- 断言 ---'
 # compat-check.mjs 里有一条「禁止 <HOME>/ 绝对路径」的断言字符串，属预期保留（根 scripts/ 与 kit 插件副本各一份）
 HITS=$(grep -RIl '<HOME>/' "$OUT" 2>/dev/null | grep -v '/scripts/compat-check.mjs$' || true)
 [ -z "$HITS" ] || die "输出目录仍有 <HOME>/ 绝对路径: $HITS"
-if grep -RIlE 'ghp_<redacted>|githubPat_<redacted>|<AUTH_TOKEN_FIELD>|sk-<redacted>' "$OUT" >/dev/null 2>&1; then
+if grep -RIlE 'ghp_[A-Za-z0-9]{20,}|githubPat_<redacted>|<AUTH_TOKEN_FIELD>|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|xox[bap]-|AIza[0-9A-Za-z_-]{35}' "$OUT" >/dev/null 2>&1; then
   die "输出目录疑似含密钥"
 fi
 if grep -RIlE '源工作区|其他工作区|<user>|<redacted>|邮箱|本地插件示例' "$OUT" >/dev/null 2>&1; then
@@ -191,7 +200,7 @@ fi
 node --check "$OUT/index.js" || die "index.js 语法错误"
 node --check "$OUT/client.js" || die "client.js 语法错误"
 python3 -c "import json,sys; json.load(open('$OUT/package.json', encoding='utf-8'))" || die "package.json 不是合法 JSON"
-for rel in install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh 一键安装口令.md AGENTS.supervisor.md 主管手册.md skill/SKILL.md skill-improving-prompts/SKILL.md research/README.md patches/team-permissions/patch.py plugin/dsh-project-supervisor/index.js; do
+for rel in install-supervisor.sh install-supervisor.mjs sync-kit.sh selftest.sh verify-facts.sh build-dist.sh build-public-repo.sh supervisor-doctor.sh supervisor-verify.sh 一键安装口令.md AGENTS.supervisor.md 主管手册.md skill/SKILL.md skill/templates/auto-work-queue.md skill/templates/handoff.md skill/scripts/peek-mailbox.mjs skill-improving-prompts/SKILL.md research/README.md patches/team-permissions/patch.py patches/auto-work-timed-ask/patch.py patches/auto-work-permission/patch.py plugin/dsh-project-supervisor/index.js; do
   [ -f "$OUT/kit/$rel" ] || die "kit 缺文件: $rel"
 done
 info "断言通过：无本机绝对路径、无密钥特征、JS/JSON 合法、kit 必需文件齐全"
@@ -216,5 +225,5 @@ echo "  文件 $COUNT 个，约 $SIZE"
 echo
 echo "下一步:"
 echo "  1) 创建 GitHub 仓库后： cd \"$OUT\" && git init -b main && git add -A"
-echo "     git commit -m 'v0.5.0-beta: dsh-project-supervisor' && git remote add origin <repo-url> && git push -u origin main"
+echo "     git commit -m 'v1.0.0: dsh-project-supervisor' && git remote add origin <repo-url> && git push -u origin main"
 echo "  2) 市场条目模板: setup/public/market-entry.yml → awesome-dsh-plugin/data/plugins/..."

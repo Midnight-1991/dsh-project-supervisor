@@ -16,7 +16,7 @@
 #   3) DSH 常量：在 <DSH node_modules>/@deepseek-ai/dsh-experimental-agent-team/lib/index.js 里
 #      grep DEFAULT_MAX_MEMBERS=16 等 4 个常量，任何缺失记 FAIL。
 #   4) 权限补丁状态：调用 python3 patch.py status，调用失败记 FAIL（已应用/未应用都算 PASS）。
-#   5) 上下文预算与许可证：AGENTS.md ≤ 10KB、主管 SKILL ≤ 35000B、模板 ≤ 80 行；两技能 catalog 元数据（description+whenToUse）不超过
+#   5) 上下文预算与许可证：AGENTS.md ≤ 13000B、主管 SKILL ≤ 38000B、模板 ≤ 80 行；P0 两脚本存在可执行；两技能 catalog 元数据（description+whenToUse）不超过
 #      700/500 字符；improving-prompts 正文引用的 references/templates 文件都存在；LICENSE 与
 #      THIRD_PARTY_NOTICES.md 含 MIT 版权行；朋友测试指南存在。任何缺失记 FAIL。
 #   6) 工作流硬化软检查：AGENTS.md 含「工作流硬化」或「红旗」关键词记 PASS，缺失只记 WARN（不阻塞）。
@@ -217,18 +217,20 @@ check_patch_status() {
 check_context_and_license() {
   local agents_bytes
   agents_bytes="$(wc -c < "$SETUP_DIR/../AGENTS.md" 2>/dev/null | tr -d ' ')"
-  if [ -n "$agents_bytes" ] && [ "$agents_bytes" -le 10000 ] 2>/dev/null; then
-    pass "AGENTS.md 常驻体量 ${agents_bytes}B ≤ 10000B"
+  # 预算由用户在 2026-11-01 授权放宽（原 10000B）：见 research/DECISIONS.md 与 .dsh/efficiency/plan.md
+  if [ -n "$agents_bytes" ] && [ "$agents_bytes" -le 13000 ] 2>/dev/null; then
+    pass "AGENTS.md 常驻体量 ${agents_bytes}B ≤ 13000B"
   else
-    fail "AGENTS.md 常驻体量 ${agents_bytes:-?}B 超过 10000B 预算"
+    fail "AGENTS.md 常驻体量 ${agents_bytes:-?}B 超过 13000B 预算"
   fi
 
   local skill_bytes
   skill_bytes="$(wc -c < "$SETUP_DIR/../.dsh/skills/project-supervisor/SKILL.md" 2>/dev/null | tr -d ' ')"
-  if [ -n "$skill_bytes" ] && [ "$skill_bytes" -le 35000 ] 2>/dev/null; then
-    pass "主管 SKILL 体量 ${skill_bytes}B ≤ 35000B"
+  # 预算由用户在 2026-11-01 授权放宽（原 35000B）；新工具章节所需，见 DECISIONS
+  if [ -n "$skill_bytes" ] && [ "$skill_bytes" -le 38000 ] 2>/dev/null; then
+    pass "主管 SKILL 体量 ${skill_bytes}B ≤ 38000B"
   else
-    fail "主管 SKILL 体量 ${skill_bytes:-?}B 超过 35000B 预算（细节移回 SKILL 或模板，别塞常驻）"
+    fail "主管 SKILL 体量 ${skill_bytes:-?}B 超过 38000B 预算（细节移回 SKILL 或模板，别塞常驻）"
   fi
 
   local tpl_file tpl_lines
@@ -237,6 +239,15 @@ check_context_and_license() {
     tpl_lines="$(wc -l < "$tpl_file" | tr -d ' ')"
     if [ "$tpl_lines" -gt 80 ] 2>/dev/null; then
       warn "模板 $(basename "$tpl_file") 有 ${tpl_lines} 行（建议 ≤80 行）"
+    fi
+  done
+
+  local p0_script
+  for p0_script in supervisor-doctor.sh supervisor-verify.sh; do
+    if [ -f "$SETUP_DIR/$p0_script" ] && [ -x "$SETUP_DIR/$p0_script" ]; then
+      pass "P0 脚本存在且可执行：$p0_script"
+    else
+      fail "P0 脚本缺失或不可执行：setup/$p0_script"
     fi
   done
 
