@@ -58,6 +58,12 @@ function pass(name) {
   console.log('PASS  ' + name);
 }
 
+let skipped = 0;
+function skip(name) {
+  skipped += 1;
+  console.log('SKIP  ' + name);
+}
+
 function makeRes() {
   const state = { status: 0, headers: {}, body: '', ended: false };
   const res = {
@@ -707,139 +713,148 @@ try {
   assert.equal(result.json.enabled, false, 'enabled must follow autoWork=false');
   pass('auto-work enabled flag follows the switch back to off');
 
-  // ---- team-board route (read-only Lead session log parsing) ----
-  function writeZstdJsonlLog(file, events) {
-    const frames = events.map((event) =>
-      zlib.zstdCompressSync(Buffer.from(JSON.stringify(event) + '\n', 'utf8')),
+  // Node < 22.15 / < 23.8 has no zlib zstd API. The runtime route itself
+  // degrades gracefully (zstd-unavailable), so exercise the fixture checks only
+  // where compression exists and report the rest as skipped.
+  const hasNodeZstd =
+    typeof zlib.zstdCompressSync === 'function' && typeof zlib.zstdDecompressSync === 'function';
+  if (!hasNodeZstd) {
+    skip('team-board route fixture checks (Node zlib zstd API unavailable; requires Node >=22.15 / >=23.8)');
+  } else {
+    // ---- team-board route (read-only Lead session log parsing) ----
+    function writeZstdJsonlLog(file, events) {
+      const frames = events.map((event) =>
+        zlib.zstdCompressSync(Buffer.from(JSON.stringify(event) + '\n', 'utf8')),
+      );
+      writeFileSync(file, Buffer.concat(frames));
+    }
+
+    const teamSessionId = 'session-11111111-2222-3333-4444-555555555555';
+    const teamSessionDir = path.join(
+      process.env.DSH_HOME,
+      'sessions',
+      escapeWorkspacePath(realWorkspace),
+      teamSessionId,
     );
-    writeFileSync(file, Buffer.concat(frames));
+    mkdirSync(teamSessionDir, { recursive: true });
+    const longText = 'y'.repeat(400);
+    writeZstdJsonlLog(path.join(teamSessionDir, 'session.v4.jsonl.zstd'), [
+      { type: 'session', id: teamSessionId, cwd: realWorkspace },
+      {
+        type: 'team/member',
+        time: 1793468000000,
+        data: { version: 2, teamId: 'team-1', member: { id: 'session-aaa', name: 'rules-engineer', description: 'steward', provider: 'deepseek', context: 'fresh', phase: 'provisioning' } },
+      },
+      {
+        type: 'team/member',
+        time: 1793468001000,
+        data: { version: 2, teamId: 'team-1', member: { id: 'session-aaa', name: 'rules-engineer', description: 'steward', provider: 'deepseek', context: 'fresh', phase: 'active' } },
+      },
+      {
+        type: 'team/task',
+        time: 1793468002000,
+        data: { version: 2, teamId: 'team-1', task: { id: 'task-1', revision: 1, subject: 'rev1 subject', description: '', status: 'pending', ownerId: 'session-aaa', blockedBy: [], writeScopes: [] } },
+      },
+      {
+        type: 'team/task',
+        time: 1793468003000,
+        data: { version: 2, teamId: 'team-1', task: { id: 'task-1', revision: 2, subject: 'rev2 subject', description: '', status: 'in_progress', ownerId: 'session-aaa', blockedBy: [], writeScopes: ['plugin/dsh-project-supervisor/'] } },
+      },
+      {
+        type: 'team/task',
+        time: 1793468004000,
+        data: { version: 2, teamId: 'team-1', task: { id: 'task-2', revision: 1, subject: 'second task', description: '', status: 'pending', blockedBy: ['task-1'], writeScopes: ['setup/'] } },
+      },
+      {
+        type: 'team/message/queued',
+        time: 1793468005000,
+        data: { version: 2, teamId: 'team-1', message: { id: 'message-1', senderId: 'session-aaa', senderName: 'rules-engineer', targetId: teamSessionId, content: [{ type: 'text', text: 'already delivered' }] } },
+      },
+      {
+        type: 'team/message/delivered',
+        time: 1793468006000,
+        data: { version: 2, teamId: 'team-1', messageId: 'message-1', targetId: teamSessionId },
+      },
+      {
+        type: 'team/message/queued',
+        time: 1793468007000,
+        data: { version: 2, teamId: 'team-1', message: { id: 'message-2', senderId: 'session-aaa', senderName: 'rules-engineer', targetId: teamSessionId, content: [{ type: 'text', text: longText }] } },
+      },
+      {
+        type: 'team/message/queued',
+        time: 1793468008000,
+        data: { version: 2, teamId: 'team-1', message: { id: 'message-3', senderId: 'session-aaa', senderName: 'rules-engineer', targetId: teamSessionId, content: [{ type: 'text', text: 'pending two' }] } },
+      },
+    ]);
+    const teamLogFile = path.join(teamSessionDir, 'session.v4.jsonl.zstd');
+    const teamLogBytesBefore = readFileSync(teamLogFile);
+    const teamBoardUrl = (cwd, session) =>
+      '/plugins/dsh-project-supervisor/team-board?cwd=' + encodeURIComponent(cwd) + '&session=' + encodeURIComponent(session);
+
+    result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, teamSessionId) });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.ok, true);
+    assert.equal(result.json.exists, true);
+    assert.equal(result.json.members.length, 1, 'members must be deduped by id');
+    assert.deepEqual(
+      { name: result.json.members[0].name, phase: result.json.members[0].phase, context: result.json.members[0].context },
+      { name: 'rules-engineer', phase: 'active', context: 'fresh' },
+    );
+    assert.equal(result.json.tasks.length, 2);
+    const firstTask = result.json.tasks.find((task) => task.id === 'task-1');
+    assert.equal(firstTask.revision, 2, 'tasks must keep the highest revision');
+    assert.equal(firstTask.subject, 'rev2 subject');
+    assert.equal(firstTask.status, 'in_progress');
+    assert.equal(firstTask.ownerName, 'rules-engineer', 'ownerName must resolve the member id');
+    const secondTask = result.json.tasks.find((task) => task.id === 'task-2');
+    assert.deepEqual(secondTask.blockedBy, ['task-1']);
+    assert.deepEqual(secondTask.writeScopes, ['setup/']);
+    assert.equal(result.json.messages.queued, 3);
+    assert.equal(result.json.messages.delivered, 1);
+    assert.equal(result.json.messages.pending, 2, 'pending must be queued-minus-delivered');
+    assert.deepEqual(result.json.messages.items.map((item) => item.id), ['message-2', 'message-3']);
+    assert.equal(result.json.messages.items[0].preview.length, 120, 'message preview must truncate to 120 chars');
+    assert.ok(typeof result.json.messages.items[0].queuedAt === 'string');
+    assert.ok(result.json.path.endsWith(path.join(teamSessionId, 'session.v4.jsonl.zstd')));
+    assert.ok(!Number.isNaN(Date.parse(result.json.updatedAt)), 'updatedAt must be a valid timestamp');
+    assert.ok(readFileSync(teamLogFile).equals(teamLogBytesBefore), 'team-board GET must not modify the session log');
+    pass('team-board parses members/tasks/messages (revision dedupe, pending diff, preview truncate)');
+
+    result = await call({
+      handler: teamBoardRoute,
+      url: teamBoardUrl(workspace, teamSessionId.slice('session-'.length)),
+    });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.exists, true, 'bare uuid must resolve the session-<uuid> directory');
+    assert.equal(result.json.sessionId, teamSessionId);
+    pass('team-board accepts both bare uuid and session-<uuid> directory names');
+
+    result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, 'session-does-not-exist') });
+    assert.equal(result.status, 200);
+    assert.equal(result.json.ok, true);
+    assert.equal(result.json.exists, false);
+    assert.equal(result.json.warning, 'session-log-not-found');
+    assert.deepEqual(result.json.members, []);
+    assert.deepEqual(result.json.messages, { queued: 0, delivered: 0, pending: 0, items: [] });
+    pass('team-board degrades to an empty board when the session log is missing');
+
+    result = await call({ handler: teamBoardRoute, url: '/plugins/dsh-project-supervisor/team-board?cwd=' + encodeURIComponent(workspace) });
+    assert.equal(result.status, 400);
+    assert.equal(result.json.error, 'invalid-session');
+    result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, 'bad session id') });
+    assert.equal(result.status, 400);
+    assert.equal(result.json.error, 'invalid-session');
+    result = await call({ handler: teamBoardRoute, url: teamBoardUrl('relative/path', teamSessionId) });
+    assert.equal(result.status, 400);
+    assert.equal(result.json.error, 'invalid-cwd');
+    result = await call({ handler: teamBoardRoute, method: 'POST', url: '/plugins/dsh-project-supervisor/team-board' });
+    assert.equal(result.status, 405);
+    result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, teamSessionId), origin: 'http://evil.example' });
+    assert.equal(result.status, 403);
+    pass('team-board rejects missing/invalid session, bad cwd, non-GET and cross-origin with 400/405/403');
   }
 
-  const teamSessionId = 'session-11111111-2222-3333-4444-555555555555';
-  const teamSessionDir = path.join(
-    process.env.DSH_HOME,
-    'sessions',
-    escapeWorkspacePath(realWorkspace),
-    teamSessionId,
-  );
-  mkdirSync(teamSessionDir, { recursive: true });
-  const longText = 'y'.repeat(400);
-  writeZstdJsonlLog(path.join(teamSessionDir, 'session.v4.jsonl.zstd'), [
-    { type: 'session', id: teamSessionId, cwd: realWorkspace },
-    {
-      type: 'team/member',
-      time: 1793468000000,
-      data: { version: 2, teamId: 'team-1', member: { id: 'session-aaa', name: 'rules-engineer', description: 'steward', provider: 'deepseek', context: 'fresh', phase: 'provisioning' } },
-    },
-    {
-      type: 'team/member',
-      time: 1793468001000,
-      data: { version: 2, teamId: 'team-1', member: { id: 'session-aaa', name: 'rules-engineer', description: 'steward', provider: 'deepseek', context: 'fresh', phase: 'active' } },
-    },
-    {
-      type: 'team/task',
-      time: 1793468002000,
-      data: { version: 2, teamId: 'team-1', task: { id: 'task-1', revision: 1, subject: 'rev1 subject', description: '', status: 'pending', ownerId: 'session-aaa', blockedBy: [], writeScopes: [] } },
-    },
-    {
-      type: 'team/task',
-      time: 1793468003000,
-      data: { version: 2, teamId: 'team-1', task: { id: 'task-1', revision: 2, subject: 'rev2 subject', description: '', status: 'in_progress', ownerId: 'session-aaa', blockedBy: [], writeScopes: ['plugin/dsh-project-supervisor/'] } },
-    },
-    {
-      type: 'team/task',
-      time: 1793468004000,
-      data: { version: 2, teamId: 'team-1', task: { id: 'task-2', revision: 1, subject: 'second task', description: '', status: 'pending', blockedBy: ['task-1'], writeScopes: ['setup/'] } },
-    },
-    {
-      type: 'team/message/queued',
-      time: 1793468005000,
-      data: { version: 2, teamId: 'team-1', message: { id: 'message-1', senderId: 'session-aaa', senderName: 'rules-engineer', targetId: teamSessionId, content: [{ type: 'text', text: 'already delivered' }] } },
-    },
-    {
-      type: 'team/message/delivered',
-      time: 1793468006000,
-      data: { version: 2, teamId: 'team-1', messageId: 'message-1', targetId: teamSessionId },
-    },
-    {
-      type: 'team/message/queued',
-      time: 1793468007000,
-      data: { version: 2, teamId: 'team-1', message: { id: 'message-2', senderId: 'session-aaa', senderName: 'rules-engineer', targetId: teamSessionId, content: [{ type: 'text', text: longText }] } },
-    },
-    {
-      type: 'team/message/queued',
-      time: 1793468008000,
-      data: { version: 2, teamId: 'team-1', message: { id: 'message-3', senderId: 'session-aaa', senderName: 'rules-engineer', targetId: teamSessionId, content: [{ type: 'text', text: 'pending two' }] } },
-    },
-  ]);
-  const teamLogFile = path.join(teamSessionDir, 'session.v4.jsonl.zstd');
-  const teamLogBytesBefore = readFileSync(teamLogFile);
-  const teamBoardUrl = (cwd, session) =>
-    '/plugins/dsh-project-supervisor/team-board?cwd=' + encodeURIComponent(cwd) + '&session=' + encodeURIComponent(session);
-
-  result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, teamSessionId) });
-  assert.equal(result.status, 200);
-  assert.equal(result.json.ok, true);
-  assert.equal(result.json.exists, true);
-  assert.equal(result.json.members.length, 1, 'members must be deduped by id');
-  assert.deepEqual(
-    { name: result.json.members[0].name, phase: result.json.members[0].phase, context: result.json.members[0].context },
-    { name: 'rules-engineer', phase: 'active', context: 'fresh' },
-  );
-  assert.equal(result.json.tasks.length, 2);
-  const firstTask = result.json.tasks.find((task) => task.id === 'task-1');
-  assert.equal(firstTask.revision, 2, 'tasks must keep the highest revision');
-  assert.equal(firstTask.subject, 'rev2 subject');
-  assert.equal(firstTask.status, 'in_progress');
-  assert.equal(firstTask.ownerName, 'rules-engineer', 'ownerName must resolve the member id');
-  const secondTask = result.json.tasks.find((task) => task.id === 'task-2');
-  assert.deepEqual(secondTask.blockedBy, ['task-1']);
-  assert.deepEqual(secondTask.writeScopes, ['setup/']);
-  assert.equal(result.json.messages.queued, 3);
-  assert.equal(result.json.messages.delivered, 1);
-  assert.equal(result.json.messages.pending, 2, 'pending must be queued-minus-delivered');
-  assert.deepEqual(result.json.messages.items.map((item) => item.id), ['message-2', 'message-3']);
-  assert.equal(result.json.messages.items[0].preview.length, 120, 'message preview must truncate to 120 chars');
-  assert.ok(typeof result.json.messages.items[0].queuedAt === 'string');
-  assert.ok(result.json.path.endsWith(path.join(teamSessionId, 'session.v4.jsonl.zstd')));
-  assert.ok(!Number.isNaN(Date.parse(result.json.updatedAt)), 'updatedAt must be a valid timestamp');
-  assert.ok(readFileSync(teamLogFile).equals(teamLogBytesBefore), 'team-board GET must not modify the session log');
-  pass('team-board parses members/tasks/messages (revision dedupe, pending diff, preview truncate)');
-
-  result = await call({
-    handler: teamBoardRoute,
-    url: teamBoardUrl(workspace, teamSessionId.slice('session-'.length)),
-  });
-  assert.equal(result.status, 200);
-  assert.equal(result.json.exists, true, 'bare uuid must resolve the session-<uuid> directory');
-  assert.equal(result.json.sessionId, teamSessionId);
-  pass('team-board accepts both bare uuid and session-<uuid> directory names');
-
-  result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, 'session-does-not-exist') });
-  assert.equal(result.status, 200);
-  assert.equal(result.json.ok, true);
-  assert.equal(result.json.exists, false);
-  assert.equal(result.json.warning, 'session-log-not-found');
-  assert.deepEqual(result.json.members, []);
-  assert.deepEqual(result.json.messages, { queued: 0, delivered: 0, pending: 0, items: [] });
-  pass('team-board degrades to an empty board when the session log is missing');
-
-  result = await call({ handler: teamBoardRoute, url: '/plugins/dsh-project-supervisor/team-board?cwd=' + encodeURIComponent(workspace) });
-  assert.equal(result.status, 400);
-  assert.equal(result.json.error, 'invalid-session');
-  result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, 'bad session id') });
-  assert.equal(result.status, 400);
-  assert.equal(result.json.error, 'invalid-session');
-  result = await call({ handler: teamBoardRoute, url: teamBoardUrl('relative/path', teamSessionId) });
-  assert.equal(result.status, 400);
-  assert.equal(result.json.error, 'invalid-cwd');
-  result = await call({ handler: teamBoardRoute, method: 'POST', url: '/plugins/dsh-project-supervisor/team-board' });
-  assert.equal(result.status, 405);
-  result = await call({ handler: teamBoardRoute, url: teamBoardUrl(workspace, teamSessionId), origin: 'http://evil.example' });
-  assert.equal(result.status, 403);
-  pass('team-board rejects missing/invalid session, bad cwd, non-GET and cross-origin with 400/405/403');
-
-  console.log('\nPASS host smoke: ' + passed + ' checks');
+  console.log('\nPASS host smoke: ' + passed + ' checks' + (skipped ? ' (' + skipped + ' skipped on this Node)' : ''));
 } finally {
   process.env.HOME = HOME_BACKUP;
   if (DSH_HOME_BACKUP === undefined) delete process.env.DSH_HOME;

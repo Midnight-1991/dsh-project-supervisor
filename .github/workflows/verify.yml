@@ -6,12 +6,19 @@ on:
 
 jobs:
   smoke-and-install:
+    name: smoke-and-install (node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 20 = 兼容下限（无 zlib zstd API，host-smoke 按能力跳过 fixture 检查）
+        # 22 = 覆盖 zlib zstd（>=22.15）全量检查
+        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
       - name: plugin offline checks
         run: |
           node --check client.js

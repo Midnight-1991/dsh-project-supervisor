@@ -128,7 +128,7 @@ node install-supervisor.mjs C:\path\to\your-workspace --with-research --with-set
 ```bash
 # 插件本体
 node scripts/smoke.mjs          # client bundle 离线注册断言
-node scripts/host-smoke.mjs     # host endpoint 50 项断言（假 ctx/req/res）
+node scripts/host-smoke.mjs     # host endpoint 50 项断言（假 ctx/req/res；Node 20 无 zlib zstd 时跳过 4 项 team-board fixture 检查）
 node scripts/compat-check.mjs   # Windows/路径/HTTP 崩溃安全 34 项（干净克隆下应 0 FAIL）
 
 # 分享包安装器（在仓库根目录）
