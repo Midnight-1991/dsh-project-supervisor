@@ -43,7 +43,7 @@
 // - every failure path answers JSON / is swallowed so a bad workspace or a
 //   closed browser tab can never take the DSH process down;
 // - importing this module has no side effects.
-import { createReadStream, promises as fs, realpathSync, statSync } from 'node:fs';
+import { promises as fs, realpathSync, statSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -78,6 +78,8 @@ const TEAM_BOARD_MAX_ITEMS = 200;
 const TEAM_PREVIEW_CHARS = 120;
 const TEAM_MAX_COMPRESSED_BYTES = 50 * 1024 * 1024;
 const TEAM_MAX_DECOMPRESSED_BYTES = 64 * 1024 * 1024;
+// zstd frame magic (little-endian 0xFD2FB528); splits concatenated frames.
+const ZSTD_FRAME_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
 
 const DISPATCH_MODES = ['efficiency', 'strict'];
 const MODEL_MODES = ['auto', 'manual'];
@@ -583,82 +585,94 @@ function findTeamBoardLog(target, rawSession) {
 }
 
 /**
- * Stream-decompress a multi-frame zstd JSONL log and feed complete lines to the
+ * Decode concatenated zstd frames without relying on the streaming decoder's
+ * multi-frame behaviour: Node 22's ZstdDecompress stream stops after the first
+ * frame while Node 24 continues. We split on the zstd frame magic and decompress
+ * one frame at a time; when a candidate boundary is a false positive inside a
+ * payload the frame fails to decompress and we merge it with the next candidate.
+ */
+function decodeZstdFramesSync(raw) {
+  const starts = [];
+  let cursor = raw.indexOf(ZSTD_FRAME_MAGIC, 0);
+  while (cursor !== -1) {
+    starts.push(cursor);
+    cursor = raw.indexOf(ZSTD_FRAME_MAGIC, cursor + 4);
+  }
+  if (starts.length > 0 && starts[0] !== 0) starts.unshift(0);
+  const chunks = [];
+  let truncated = false;
+  let index = 0;
+  while (index < starts.length) {
+    let decoded = null;
+    let next = index + 1;
+    while (next <= starts.length) {
+      const end = next < starts.length ? starts[next] : raw.length;
+      try {
+        decoded = zlib.zstdDecompressSync(raw.subarray(starts[index], end));
+        break;
+      } catch {
+        next += 1;
+      }
+    }
+    if (decoded === null) {
+      truncated = true;
+      break;
+    }
+    // Node 22's sync zstd API is lenient: a truncated frame may decode to a
+    // partial buffer instead of throwing (Node 24 throws Z_BUF_ERROR). Every
+    // frame the session log writer appends ends with a newline, so a frame that
+    // does not end with one is a partially written tail: keep nothing from it.
+    if (decoded.length === 0 || decoded[decoded.length - 1] !== 0x0a) {
+      truncated = true;
+      break;
+    }
+    chunks.push(decoded);
+    index = next;
+  }
+  return { chunks, truncated };
+}
+
+/**
+ * Read a multi-frame zstd JSONL log (read-only) and feed complete lines to the
  * collector. Truncated tails (session still being written) are tolerated; a
  * decompressed-size cap protects the DSH process from pathological logs.
  */
-function readZstdJsonLines(logPath, onLine) {
-  return new Promise((resolve) => {
-    const result = { bytes: 0, truncated: false, unavailable: false, tooLarge: false };
-    let settled = false;
-    const finish = (patch) => {
-      if (settled) return;
-      settled = true;
-      Object.assign(result, patch || {});
-      resolve(result);
-    };
-    if (typeof zlib.createZstdDecompress !== 'function') {
-      finish({ unavailable: true });
-      return;
-    }
-    let source;
-    let decoder;
+async function readZstdJsonLines(logPath, onLine) {
+  const result = { bytes: 0, truncated: false, unavailable: false, tooLarge: false };
+  if (typeof zlib.zstdDecompressSync !== 'function') {
+    result.unavailable = true;
+    return result;
+  }
+  let raw;
+  try {
+    raw = await fs.readFile(logPath);
+  } catch {
+    result.truncated = true;
+    return result;
+  }
+  if (raw.length > TEAM_MAX_COMPRESSED_BYTES) {
+    result.tooLarge = true;
+    return result;
+  }
+  const decoded = decodeZstdFramesSync(raw);
+  result.truncated = decoded.truncated;
+  if (decoded.chunks.length === 0) return result;
+  const text = Buffer.concat(decoded.chunks).toString('utf8');
+  result.bytes = Buffer.byteLength(text, 'utf8');
+  if (result.bytes > TEAM_MAX_DECOMPRESSED_BYTES) {
+    result.tooLarge = true;
+    return result;
+  }
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
     try {
-      source = createReadStream(logPath);
-      decoder = zlib.createZstdDecompress();
+      onLine(trimmed);
     } catch {
-      finish({ unavailable: true });
-      return;
+      // a broken line must never abort the whole read
     }
-    let buffer = '';
-    const emit = (final) => {
-      let index = buffer.indexOf('\n');
-      while (index !== -1) {
-        const line = buffer.slice(0, index);
-        buffer = buffer.slice(index + 1);
-        try {
-          onLine(line);
-        } catch {
-          // a broken line must never abort the whole read
-        }
-        index = buffer.indexOf('\n');
-      }
-      if (final && buffer.trim()) {
-        try {
-          onLine(buffer);
-        } catch {
-          // ignore
-        }
-        buffer = '';
-      }
-    };
-    decoder.setEncoding('utf8');
-    decoder.on('data', (chunk) => {
-      result.bytes += Buffer.byteLength(chunk);
-      if (result.bytes > TEAM_MAX_DECOMPRESSED_BYTES) {
-        finish({ tooLarge: true });
-        try {
-          source.destroy();
-          decoder.destroy();
-        } catch {
-          // best effort
-        }
-        return;
-      }
-      buffer += chunk;
-      emit(false);
-    });
-    decoder.on('end', () => {
-      emit(true);
-      finish({});
-    });
-    decoder.on('error', () => {
-      emit(true);
-      finish({ truncated: true });
-    });
-    source.on('error', () => finish({ truncated: true }));
-    source.pipe(decoder);
-  });
+  }
+  return result;
 }
 
 /** First text block of a Team message content array, trimmed to a preview. */

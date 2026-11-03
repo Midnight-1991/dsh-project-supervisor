@@ -34,7 +34,7 @@ pending 0（没有未投递消息）                            # pending 为 0 
 
 - 只以只读方式打开会话日志；**绝不写** session 日志、状态文件或工作区任何文件；不联网、无第三方依赖。
 - `--self-test` 只写 `os.tmpdir()` 下的临时目录，并在 `finally` 中清理。
-- 解压：优先 Node ≥ 24 的 `node:zlib` `ZstdDecompress`（自动跨帧）；不可用时回退
+- 解压：优先 Node ≥ 22.15 的 `node:zlib` `zstdDecompressSync`（按帧魔数逐帧解压，Node 22/24 行为一致）；不可用时回退
   `python3 -c "import zstandard; …"`；两者都不可用时 **exit 3** 并给可执行修复提示。
 - 容忍正在写入的**截断尾帧**：已解出的完整行先解析，残行/损坏行跳过（stderr 提示一次）。
 

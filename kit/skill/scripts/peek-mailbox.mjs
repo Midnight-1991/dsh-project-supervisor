@@ -19,8 +19,9 @@
  *   - 不联网、无第三方依赖。
  *
  * 解压策略：
- *   1) Node >= 24：node:zlib 的 ZstdDecompress 流式解压（ZstdDecompress 会自动
- *      跨帧解压拼接的多帧 zstd）；容忍正在写入造成的截断尾帧（保留已解出的完整行）。
+ *   1) Node >= 22.15：node:zlib 的 zstdDecompressSync 按 zstd 帧魔数切分并逐帧
+ *      解压（Node 22 的流式 ZstdDecompress 只解首帧、Node 24 才跨帧；逐帧解压
+ *      让两代 Node 行为一致）；容忍正在写入造成的截断尾帧（保留已解出的完整帧）。
  *   2) 回退：`python3 -c "import zstandard; …"` 子进程流式解压（同样容忍截断尾帧）。
  *   3) 两者都不可用：exit 3 + 可执行的修复提示。
  *
@@ -43,6 +44,8 @@ const EXIT_NO_ZSTD = 3;
 const DEFAULT_LIMIT = 20;
 const PREVIEW_LIMIT = 120;
 const LOG_FILE = 'session.v4.jsonl.zstd';
+// zstd 帧魔数（小端 0xFD2FB528），用于切分拼接的多帧日志。
+const ZSTD_FRAME_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd]);
 const INBOX_TARGETS = ['next-turn', 'next-step'];
 /** 预览脱敏规则：[正则, 替换]（按顺序应用；避免把正常人话误伤成密文）。 */
 const SECRET_RULES = [
@@ -487,58 +490,71 @@ function createEventCollector() {
 }
 
 /**
- * Node >= 24 的 node:zlib ZstdDecompress 流式解压。
+ * Node zstd 多帧解压（Node >= 22.15 的 node:zlib zstdDecompressSync）。
+ *
+ * 不依赖流式 ZstdDecompress 的跨帧行为：Node 22 的流只解第一帧、Node 24 才
+ * 自动跨帧。这里按 zstd 帧魔数切分候选边界并逐帧同步解压；候选边界若落在
+ * payload 内部导致解压失败，则与下一候选合并重试。截断尾帧保留已解完整帧。
+ *
  * @returns {Promise<{via:string, bytes:number, truncated:boolean, error:Error|null}>}
  */
 function readWithNodeZstd(logPath, collector) {
-  return new Promise((resolve) => {
-    const result = { via: 'node-zstd', bytes: 0, truncated: false, error: null };
-    const lines = createLineReader((line) => collector.onLine(line));
-    let settled = false;
-    let src;
-    let dec;
-
-    const finish = (error) => {
-      if (settled) return;
-      settled = true;
-      if (!error) lines.end();
-      result.error = error || null;
-      result.truncated = Boolean(error);
+  const result = { via: 'node-zstd', bytes: 0, truncated: false, error: null };
+  let raw;
+  try {
+    raw = fs.readFileSync(logPath);
+  } catch (error) {
+    result.error = error;
+    result.truncated = true;
+    return Promise.resolve(result);
+  }
+  const starts = [];
+  let cursor = raw.indexOf(ZSTD_FRAME_MAGIC, 0);
+  while (cursor !== -1) {
+    starts.push(cursor);
+    cursor = raw.indexOf(ZSTD_FRAME_MAGIC, cursor + 4);
+  }
+  if (starts.length > 0 && starts[0] !== 0) starts.unshift(0);
+  const chunks = [];
+  let index = 0;
+  while (index < starts.length) {
+    let decoded = null;
+    let next = index + 1;
+    while (next <= starts.length) {
+      const end = next < starts.length ? starts[next] : raw.length;
       try {
-        if (src) src.destroy();
+        decoded = zlib.zstdDecompressSync(raw.subarray(starts[index], end));
+        break;
       } catch {
-        /* ignore */
+        next += 1;
       }
-      try {
-        if (dec) dec.destroy();
-      } catch {
-        /* ignore */
-      }
-      resolve(result);
-    };
-
-    try {
-      src = fs.createReadStream(logPath);
-    } catch (error) {
-      finish(error);
-      return;
     }
-    try {
-      dec = zlib.createZstdDecompress();
-    } catch (error) {
-      finish(error);
-      return;
+    if (decoded === null) {
+      result.truncated = true;
+      break;
     }
-    dec.setEncoding('utf8');
-    dec.on('data', (chunk) => {
-      result.bytes += chunk.length;
-      lines.push(chunk);
-    });
-    dec.on('end', () => finish(null));
-    dec.on('error', (error) => finish(error)); // 截断尾帧会命中这里
-    src.on('error', (error) => finish(error));
-    src.pipe(dec);
-  });
+    // Node 22 的 sync zstd 对截断帧是宽容的（返回部分数据而不抛错，Node 24 抛
+    // Z_BUF_ERROR）。会话日志写入方每帧都以换行结尾，因此不以换行结尾的帧即
+    // 正在写入的截断尾帧：丢弃该帧内容并标记 truncated。
+    if (decoded.length === 0 || decoded[decoded.length - 1] !== 0x0a) {
+      result.truncated = true;
+      break;
+    }
+    chunks.push(decoded);
+    index = next;
+  }
+  const text = Buffer.concat(chunks).toString('utf8');
+  result.bytes = Buffer.byteLength(text, 'utf8');
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue;
+    try {
+      collector.onLine(line);
+    } catch {
+      /* 损坏行不影响整体解析 */
+    }
+  }
+  if (result.truncated) result.error = new Error('截断尾帧（会话可能正在写入）');
+  return Promise.resolve(result);
 }
 
 /** python3 + zstandard 回退脚本：流式解压多帧 zstd，容忍截断尾帧。 */
@@ -625,7 +641,7 @@ function noZstdError(detail) {
       '无法解压 zstd 会话日志：Node 与 python3 两条解压路径都不可用。',
       detail ? `详情：${detail}` : '',
       '可执行修复（任选其一）：',
-      '  1) 升级 Node 到 v24+（内置 node:zlib 的 ZstdDecompress / zstdCompress）；',
+      '  1) 升级 Node 到 v22.15+ / v24+（内置 node:zlib 的 zstd 解压与压缩）；',
       '  2) 安装 python 依赖：python3 -m pip install --user zstandard；',
       '  3) 安装 zstd CLI 后手动查看：zstd -dc "<会话日志路径>" | grep team/message',
     ]
@@ -654,7 +670,7 @@ async function collectLog(logPath) {
     return { collector, via: 'empty', warnings };
   }
 
-  const nodeZstdAvailable = typeof zlib.createZstdDecompress === 'function';
+  const nodeZstdAvailable = typeof zlib.zstdDecompressSync === 'function';
   if (nodeZstdAvailable) {
     const result = await readWithNodeZstd(logPath, collector);
     if (!result.error) {
@@ -1006,10 +1022,10 @@ function stageFakeDshHome(tmpRoot, fixtureBuffer) {
 /** self-test 主体：返回可打印的结果；失败抛错由 run() 兜底为 exit 1。 */
 async function runSelfTest() {
   const zstdCompressSync = zlib.zstdCompressSync;
-  if (typeof zstdCompressSync !== 'function' || typeof zlib.createZstdDecompress !== 'function') {
+  if (typeof zstdCompressSync !== 'function' || typeof zlib.zstdDecompressSync !== 'function') {
     return {
       exitCode: EXIT_OK,
-      stdout: 'self-test SKIP（当前 Node 无 node:zlib zstd 能力；真实日志需 Node ≥24 或 python3 zstandard，安装后重跑本自测）\n',
+      stdout: 'self-test SKIP（当前 Node 无 node:zlib zstd 能力；真实日志需 Node ≥22.15 或 python3 zstandard，安装后重跑本自测）\n',
       stderr: '',
     };
   }

@@ -17,6 +17,7 @@
 ### 变更
 - **移除与外部上下文压缩组件的全部集成**（按用户要求，2026-11-01；该组件不在主管引用范围内）：doctor 不再做外部组件健康检查，`--json` 不再输出相关字段；面板删除两张运行态卡（上下文健康 / 成本用量）及其只读运行态接口；规则/套件/文档与测试不再引用该组件（历史过程记录保留原文并加注）。
 - **CI（GitHub Actions `verify`）**：Node 20/22 双版本矩阵（原先固定 Node 20 导致失败）；Node 20 无 `zlib` zstd API，`host-smoke` 的 team-board fixture 检查按能力打印 SKIP（运行时路由本来就会降级为 `zstd-unavailable`），Node 22 全量执行 50 项。
+- **修复：Node 22 团队看板/排队消息空白**：`team-board` 与 `peek-mailbox` 的多帧 zstd 日志改为按帧魔数 `28 B5 2F FD` 逐帧 `zstdDecompressSync` 解压（Node 22 的流式 `ZstdDecompress` 只解首帧、Node 24 才跨帧；候选边界落在 payload 内时与下一候选合并重试），Node 22/24 行为一致；Node <22.15 仍走 python3 zstandard 回退。
 - **安全脱敏修复**：`build-public-repo.sh` 的 `sk-`/`ghp_` 等模式改为运行时拼接的正则替换（原先按字面量替换可能导致公开包漏脱敏），公开包密钥断言保留；`peek-mailbox.mjs` 自测 fixture 改为运行时拼接假 key，源码不再出现形似真实密钥的字面量。
 - **版本推进**：套件 **1.13.0 → 2.0.0**、插件 **0.9.0 → 1.0.0**；面板「自动工作」行内新增缩进次级开关「更经济的自动化」（配置字段 `economicalAutoWork`，默认 `false`），config 路由 GET/POST 字段集合同步。
 - 1.13.0 及以下条目为内部开发批次（含自动工作 P0/P1、队列消息只读、更经济的自动化、四分区重排+分区折叠、doctor/verify/handoff、去外部组件引用等），已全部并入本版本。
@@ -57,7 +58,7 @@
 
 ### 新增
 - **自动工作（无人值守，默认关）**：配置字段 `autoWork`（默认 `false`，关闭时行为完全不变）；面板新增「自动工作」开关卡片与只读队列状态卡（`GET /plugins/dsh-project-supervisor/auto-work`）；规则写入 `AGENTS.md`（常驻短节）、主管 SKILL（开关读回 / tick 循环 / 停止与收尾 / 安全禁区）与《主管手册》；队列文件 `<工作区>/.dsh/auto-work-queue.md` 固定四节（`## 排队任务` / `## 阻塞` / `## 待回答的问题` / `## 自动工作日志`），模板随主管技能分发（`templates/auto-work-queue.md`）。
-- **只读排队消息脚本**：`skill/scripts/peek-mailbox.mjs`（读会话日志求 `team/message/queued` − `delivered` 差集；Node ≥24 用内置 zstd，回退 python3 zstandard；只读、不改会话状态），随技能目录安装到 `.dsh/skills/project-supervisor/scripts/`。
+- **只读排队消息脚本**：`skill/scripts/peek-mailbox.mjs`（读会话日志求 `team/message/queued` − `delivered` 差集；Node ≥22.15 用内置 zstd（逐帧解压，Node 22/24 一致），回退 python3 zstandard；只读、不改会话状态），随技能目录安装到 `.dsh/skills/project-supervisor/scripts/`。
 - **两个可选补丁目录**（默认不应用、需手动装）：`patches/auto-work-timed-ask`（preset standard 的 ask-user 条目改为 `timed`+短超时）与 `patches/auto-work-permission`（新增「自动工作」权限预设 = workspace-write + 审批 never）；各含 `patch.py`（status/apply/revert/selftest，带 `.bak` 备份、幂等、失败回滚）与 README。
 - 插件 **0.8.0**：开关从四个增至五个（新增 `autoWork`）、新增只读队列状态路由、smoke/host-smoke 断言与插件 README 同步。
 
