@@ -16,7 +16,7 @@
 
 ### 变更
 - **移除与外部上下文压缩组件的全部集成**（按用户要求，2026-11-01；该组件不在主管引用范围内）：doctor 不再做外部组件健康检查，`--json` 不再输出相关字段；面板删除两张运行态卡（上下文健康 / 成本用量）及其只读运行态接口；规则/套件/文档与测试不再引用该组件（历史过程记录保留原文并加注）。
-- **CI（GitHub Actions `verify`）**：Node 20/22 双版本矩阵（原先固定 Node 20 导致失败）；Node 20 无 `zlib` zstd API，`host-smoke` 的 team-board fixture 检查按能力打印 SKIP（运行时路由本来就会降级为 `zstd-unavailable`），Node 22 全量执行 50 项。
+- **CI（GitHub Actions `verify`）**：Node **20/22/24** 三版本矩阵、`runs-on: ubuntu-24.04`、`actions/checkout@v5` + `actions/setup-node@v5`（消除旧版 action 的 Node.js 20 deprecated 警告与 `ubuntu-latest` 迁移提示）；Node 20 无 `zlib` zstd API 时 `host-smoke` 的 team-board fixture 检查按能力打印 SKIP（运行时路由本来就会降级为 `zstd-unavailable`），Node 22 覆盖多帧 zstd 回归，Node 24 全量执行 50 项。
 - **修复：Node 22 团队看板/排队消息空白**：`team-board` 与 `peek-mailbox` 的多帧 zstd 日志改为按帧魔数 `28 B5 2F FD` 逐帧 `zstdDecompressSync` 解压（Node 22 的流式 `ZstdDecompress` 只解首帧、Node 24 才跨帧；候选边界落在 payload 内时与下一候选合并重试），Node 22/24 行为一致；Node <22.15 仍走 python3 zstandard 回退。
 - **安全脱敏修复**：`build-public-repo.sh` 的 `sk-`/`ghp_` 等模式改为运行时拼接的正则替换（原先按字面量替换可能导致公开包漏脱敏），公开包密钥断言保留；`peek-mailbox.mjs` 自测 fixture 改为运行时拼接假 key，源码不再出现形似真实密钥的字面量。
 - **版本推进**：套件 **1.13.0 → 2.0.0**、插件 **0.9.0 → 1.0.0**；面板「自动工作」行内新增缩进次级开关「更经济的自动化」（配置字段 `economicalAutoWork`，默认 `false`），config 路由 GET/POST 字段集合同步。
